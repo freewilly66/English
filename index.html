@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#27ae60">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="영어듣기">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>영어 듣기 트래커</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+:root{
+  --green:#27ae60;--green-light:#f0faf4;--green-border:#27ae6030;
+  --orange:#e67e22;--red:#e74c3c;
+  --bbc:#bb1919;--voa:#1a4b8c;
+  --bg:#f8f9fa;--surface:#ffffff;--surface2:#f1f3f5;
+  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --border:#e9ecef;--radius:12px;--radius-sm:8px;
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#0d0d0d;--surface:#1a1a1a;--surface2:#242424;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:#333;--green-light:#0d2818;--green-border:#27ae6050}
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;overscroll-behavior:none}
+#app{max-width:500px;margin:0 auto;height:100%;display:flex;flex-direction:column}
+
+.header{padding:calc(env(safe-area-inset-top,0px) + 12px) 20px 12px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;z-index:10}
+.header-top{display:flex;justify-content:space-between;align-items:flex-start}
+.header h1{font-size:20px;font-weight:600}
+.header .date-label{font-size:12px;color:var(--text2);margin-top:2px}
+.notif-btn{padding:6px 12px;border-radius:20px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap}
+.notif-btn.on{background:var(--green);color:white;border-color:var(--green)}
+
+.page-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 90px)}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#27ae60 0%,#1abc9c 50%,#2ecc71 100%);padding:28px 20px;text-align:center;color:white}
+.hero-emoji{font-size:52px;margin-bottom:8px}
+.hero-text{font-size:15px;font-weight:600;opacity:.9}
+
+.section{padding:14px 20px}
+.section-label{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+
+.nag{border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;font-weight:500;margin-bottom:4px}
+.nag.l1{background:#fef9f0;color:#d35400;border:1px solid #e67e2230}
+.nag.l2{background:#fff5f0;color:#c0392b;border:1px solid #e74c3c30}
+.nag.l3{background:#fff0f0;color:#922b21;border:1px solid #c0392b40;animation:shake .6s ease}
+@media(prefers-color-scheme:dark){
+  .nag.l1{background:#2a1f0a;color:#f0a050;border-color:#e67e2250}
+  .nag.l2{background:#2a0f0f;color:#f08080;border-color:#e74c3c50}
+  .nag.l3{background:#2a0808;color:#f06060;border-color:#c0392b50}
+}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes pop{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+
+.progress-card{background:var(--surface);border-radius:var(--radius);padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--green)}
+.progress-row{display:flex;gap:20px;flex-wrap:wrap;margin-top:8px}
+.pi-label{font-size:11px;color:var(--text3);display:block;margin-bottom:2px}
+.pi-val{font-size:13px;font-weight:600}
+.bar-bg{height:4px;background:var(--surface2);border-radius:2px;margin-top:10px;overflow:hidden}
+.bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width .5s}
+.bar-label{font-size:11px;color:var(--text3);margin-top:4px;text-align:right}
+
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat-card{background:var(--surface);border-radius:var(--radius-sm);padding:12px;border:1px solid var(--border);text-align:center}
+.stat-card.today-done{background:var(--green-light);border-color:var(--green-border)}
+.stat-num{font-size:26px;font-weight:700;line-height:1.1}
+.stat-label{font-size:11px;color:var(--text3);margin-top:3px}
+
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day-cell{text-align:center}
+.day-box{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.day-box.done{background:var(--green);color:white}
+.day-box.today{background:var(--surface2);border:2px solid var(--green)}
+.day-box.future{background:var(--surface2);opacity:0.4}
+.day-box.past{background:var(--surface2)}
+.day-name{font-size:10px;color:var(--text3);margin-top:3px}
+.day-name.today-lbl{color:var(--text);font-weight:700}
+.day-name.sun{color:#e74c3c}
+.day-name.sat{color:#1a4b8c}
+.day-num{font-size:9px;color:var(--text3);margin-top:1px}
+.day-num.today-lbl{font-weight:700;color:var(--text)}
+
+.ep-progress-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+.ep-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ep-progress-label{font-size:13px;font-weight:600}
+.ep-progress-count{font-size:14px;font-weight:700;color:var(--green)}
+.ep-bar-bg{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.ep-bar-fill{height:100%;background:var(--green);border-radius:4px;transition:width .4s ease}
+.ep-hint{font-size:11px;color:var(--text3);margin-top:6px;text-align:center}
+
+.btn-done{width:100%;padding:16px;background:var(--green);color:white;border:none;border-radius:var(--radius);font-size:15px;font-weight:600;cursor:pointer;-webkit-appearance:none}
+.btn-done:active{opacity:.7}
+.done-banner{background:var(--green-light);border:1px solid var(--green-border);border-radius:var(--radius);padding:20px 16px;text-align:center}
+.done-banner.auto{animation:pop .5s ease forwards}
+.done-how{font-size:11px;color:var(--text2);margin-top:6px}
+
+/* Feed */
+.feed-section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-bottom:10px}
+.feed-header{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.feed-badge{font-size:11px;font-weight:700;color:white;padding:3px 8px;border-radius:4px}
+.feed-badge.bbc{background:var(--bbc)}.feed-badge.voa{background:var(--voa)}
+.feed-name{font-size:13px;font-weight:500}
+.feed-item{padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;display:flex;align-items:flex-start;gap:10px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.feed-item:last-child{border-bottom:none}
+.feed-item:active{background:var(--surface2)}
+.feed-item.listened{background:var(--green-light)}
+.ep-check{width:22px;height:22px;flex-shrink:0;margin-top:1px}
+.ep-check .circle{fill:none;stroke:var(--border);stroke-width:2;transition:all .3s}
+.ep-check .tick{fill:none;stroke:transparent;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .3s}
+.feed-item.listened .ep-check .circle{stroke:var(--green);fill:var(--green)}
+.feed-item.listened .ep-check .tick{stroke:white}
+.ep-body{flex:1;min-width:0}
+.fi-title{font-size:13px;font-weight:500;line-height:1.4;margin-bottom:3px}
+.feed-item.listened .fi-title{color:var(--text2)}
+.fi-meta{font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.fi-new{font-size:10px;font-weight:700;color:white;background:var(--red);padding:2px 6px;border-radius:3px}
+.fi-ok{font-size:10px;font-weight:600;color:var(--green)}
+.no-new{padding:10px 14px;font-size:12px;color:var(--text3);font-style:italic}
+.feed-loading{padding:14px;text-align:center;font-size:13px;color:var(--text3)}
+.feed-error{padding:14px;font-size:12px;color:var(--text3);line-height:1.5}
+.feed-refresh{background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:2px 6px;border-radius:4px}
+
+/* Content tab */
+.tab-bar{display:flex;gap:6px;margin-bottom:12px;background:var(--surface2);padding:4px;border-radius:var(--radius-sm)}
+.tab{flex:1;padding:8px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);-webkit-appearance:none}
+.tab.active-bbc{background:var(--bbc);color:white}.tab.active-voa{background:var(--voa);color:white}
+.open-btn{display:block;padding:13px 16px;border-radius:var(--radius-sm);font-size:14px;font-weight:600;color:white;text-align:center;text-decoration:none;margin-bottom:10px}
+.open-btn.bbc{background:var(--bbc)}.open-btn.voa{background:var(--voa)}
+.content-item{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text)}
+.content-item:last-child{border-bottom:none}
+.ci-desc{font-size:11px;color:var(--text3)}
+
+/* Settings */
+.settings-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:14px 16px;border:1px solid var(--border);margin-bottom:10px}
+.settings-row p{font-size:13px;font-weight:500}
+.settings-row small{font-size:12px;color:var(--text2);display:block;margin-top:2px}
+.toggle-btn{padding:8px 16px;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;-webkit-appearance:none}
+.toggle-btn.on{background:#e74c3c;color:white}.toggle-btn.off{background:var(--green);color:white}
+.install-hint{background:var(--surface2);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text2);line-height:1.6}
+.btn-install{padding:8px 16px;background:var(--green);color:white;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;-webkit-appearance:none}
+
+/* Bottom nav */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;padding:0 0 env(safe-area-inset-bottom,0);z-index:100}
+.nav-btn{flex:1;padding:14px 0 16px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text3);font-size:12px;font-weight:500;-webkit-appearance:none}
+.nav-btn.active{color:var(--green)}
+.nav-icon{font-size:28px;line-height:1}
+
+.page{display:none}.page.active{display:block}
+button,a{cursor:pointer}a{text-decoration:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-top">
+      <div><h1>영어 듣기 트래커</h1><div class="date-label" id="h-date"></div></div>
+      <button class="notif-btn" id="notif-btn" onclick="toggleNotif()">🔔 알림</button>
+    </div>
+  </div>
+
+  <div class="page-scroll" id="main-scroll">
+    <div class="page active" id="page-home">
+      <div class="hero">
+        <div class="hero-emoji">🎧</div>
+        <div class="hero-text">오늘도 영어 듣기, 시작해볼까요?</div>
+      </div>
+      <div class="section" id="nag-wrap"></div>
+      <div class="section" id="progress-wrap"></div>
+      <div class="section">
+        <div class="section-label">이번 주 통계</div>
+        <div class="stats-grid" id="stats-grid"></div>
+      </div>
+      <div class="section">
+        <div class="section-label" id="week-label">이번 주</div>
+        <div class="week-grid" id="week-grid"></div>
+      </div>
+      <div class="section" id="action-wrap"></div>
+      <div class="section">
+        <div class="section-label">
+          <span>오늘의 콘텐츠</span>
+          <button class="feed-refresh" onclick="loadFeeds(true)">↻ 새로고침</button>
+        </div>
+        <div id="feeds-wrap"><div class="feed-loading">피드 불러오는 중...</div></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-content">
+      <div class="section">
+        <div class="tab-bar">
+          <button class="tab active-bbc" id="tab-bbc" onclick="setTab('bbc')">BBC</button>
+          <button class="tab" id="tab-voa" onclick="setTab('voa')">VOA</button>
+        </div>
+        <div id="content-list"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-settings">
+      <div class="section">
+        <div class="section-label">알림</div>
+        <div class="settings-row">
+          <div><p>귀찮은 알림 🔔</p><small>오늘 완료 안 하면 90분마다 알림</small></div>
+          <button class="toggle-btn off" id="s-notif-btn" onclick="toggleNotif()">켜기</button>
+        </div>
+      </div>
+      <div class="section" id="install-section"></div>
+      <div class="section">
+        <div class="section-label">기록</div>
+        <button onclick="resetData()" style="padding:10px 18px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:var(--radius-sm);font-size:14px;-webkit-appearance:none">모든 기록 삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="showPage('home')"><span class="nav-icon">🏠</span>홈</button>
+  <button class="nav-btn" id="nav-content" onclick="showPage('content')"><span class="nav-icon">📻</span>콘텐츠</button>
+  <button class="nav-btn" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>설정</button>
+</nav>
+
+<script>
+(function(){
+'use strict';
+
+// ── iOS detection ──
+var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode:standalone)').matches;
+
+// ── Safe localStorage wrapper ──
+function lsGet(key, fallback) {
+  try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e) { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+// ── Constants ──
+var TODAY = new Date().toISOString().split('T')[0];
+var RSS2JSON = 'https://api.rss2json.com/v1/api.json?count=4&rss_url=';
+var CACHE_TTL = 60 * 60 * 1000;
+
+var FEEDS = [
+  {id:'bbc-6min',   badge:'BBC', cls:'bbc', name:'6 Minute English',
+   url:'https://podcasts.files.bbci.co.uk/p02pc9tn.rss'},
+  {id:'bbc-speak',  badge:'BBC', cls:'bbc', name:'The English We Speak',
+   url:'https://podcasts.files.bbci.co.uk/p02pc9s3.rss'},
+  {id:'bbc-news',   badge:'BBC', cls:'bbc', name:'Learning English from the News',
+   url:'https://podcasts.files.bbci.co.uk/p07f3fcp.rss'},
+  {id:'voa-main',   badge:'VOA', cls:'voa', name:'VOA Learning English',
+   url:'https://learningenglish.voanews.com/podcast/?zoneId=1689&format=RSS'},
+  {id:'voa-asitis', badge:'VOA', cls:'voa', name:'As It Is',
+   url:'https://learningenglish.voanews.com/podcast/?zoneId=3527&format=RSS'},
+  {id:'voa-gram',   badge:'VOA', cls:'voa', name:'Everyday Grammar',
+   url:'https://learningenglish.voanews.com/podcast/?zoneId=4692&format=RSS'},
+];
+
+// ── State ──
+var state = lsGet('english_habit', {history:{}, notif:false, tab:'bbc'});
+
+var listenedRaw = lsGet('listened_eps', {});
+var cutoff = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
+Object.keys(listenedRaw).forEach(function(d){if(d<cutoff)delete listenedRaw[d];});
+var listenedToday = new Set(listenedRaw[TODAY]||[]);
+
+var todayNewEps = new Set();
+var lastFeedResults = [];
+var nagTimer = null, deferredInstall = null;
+
+function save(){ lsSet('english_habit', state); }
+function saveListened(){ listenedRaw[TODAY]=[].concat(Array.from(listenedToday)); lsSet('listened_eps', listenedRaw); }
+
+// ── Open URL (iOS standalone fix) ──
+function openUrl(url) {
+  // iOS standalone mode: window.open doesn't work, use <a> trick
+  if (isStandalone && isIOS) {
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ document.body.removeChild(a); }, 100);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+window.openUrl = openUrl;
+
+// ── Episode tap ──
+function onEpisodeTap(url) {
+  openUrl(url);
+  if(listenedToday.has(url)) return;
+  listenedToday.add(url);
+  saveListened();
+  renderFeedResult(lastFeedResults);
+  if(!state.history[TODAY] && todayNewEps.size > 0){
+    var allDone = Array.from(todayNewEps).every(function(u){return listenedToday.has(u);});
+    if(allDone) triggerAutoComplete();
+  }
+}
+window.onEpisodeTap = onEpisodeTap;
+
+function triggerAutoComplete(){
+  state.history[TODAY] = true; save();
+  try { if(navigator.vibrate) navigator.vibrate([80,50,80,50,150]); } catch(e){}
+  var aw = document.getElementById('action-wrap');
+  if(aw){
+    aw.innerHTML = '<div class="done-banner auto">' +
+      '<div style="font-size:36px;margin-bottom:8px">🎉</div>' +
+      '<div style="font-size:16px;font-weight:700;color:var(--green)">자동 완료!</div>' +
+      '<div class="done-how">오늘 NEW 에피소드를 모두 열었어요</div></div>';
+  }
+  showNotification('✅ 오늘 영어 듣기 완료!', 'NEW 에피소드를 모두 열었어요 🎧');
+  setTimeout(function(){ render(); }, 2000);
+}
+
+// ── Safe Notification wrapper (iOS doesn't support Notification API in standalone) ──
+function showNotification(title, body) {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(title, {body: body, icon: './icon.svg'});
+    }
+  } catch(e) {}
+}
+
+// ── Date helpers ──
+function getWeekDays(){
+  var today = new Date();
+  var dow = today.getDay();
+  var sunday = new Date(today);
+  sunday.setDate(today.getDate() - dow);
+  return Array.from({length:7}, function(_,i){
+    var d = new Date(sunday);
+    d.setDate(sunday.getDate()+i);
+    return d.toISOString().split('T')[0];
+  });
+}
+
+var DAYNAMES = ['일','월','화','수','목','금','토'];
+function formatKo(ds){var d=new Date(ds+'T12:00:00');return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';}
+function todayFull(){var d=new Date(),days=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+days[d.getDay()];}
+function calcStreak(){var n=0,d=new Date();while(state.history[d.toISOString().split('T')[0]]){n++;d.setDate(d.getDate()-1);}return n;}
+function firstDay(){var k=Object.keys(state.history).filter(function(k){return state.history[k];}).sort();return k[0]||null;}
+function totalDone(){return Object.values(state.history).filter(Boolean).length;}
+function daysBetween(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);}
+function nagLevel(){if(state.history[TODAY])return 0;var h=new Date().getHours();return h<10?0:h<15?1:h<20?2:3;}
+function isToday(ds){return ds&&ds.slice(0,10)===TODAY;}
+function isThisWeek(ds){if(!ds)return false;var diff=(new Date(TODAY)-new Date(ds.slice(0,10)))/86400000;return diff>=0&&diff<=7;}
+function relDate(ds){if(!ds)return '';var diff=Math.round((new Date(TODAY)-new Date(ds.slice(0,10)))/86400000);return diff===0?'오늘':diff===1?'어제':diff<=7?diff+'일 전':ds.slice(0,10);}
+
+// ── Nagging ──
+var nagMsgs=['아직 오늘 영어 듣기 안 했어요! 지금 바로 켜세요 🎧','또 잊고 있죠? 5분만 투자하면 돼요!','오늘 영어 듣기 아직이에요. 계속 알림 갑니다 😤','자려고요?? 영어 듣기 먼저!!'];
+function startNagging(){
+  clearInterval(nagTimer); if(!state.notif)return;
+  nagTimer = setInterval(function(){
+    if(state.history[TODAY])return;
+    var msg = nagMsgs[Math.floor(Math.random()*nagMsgs.length)];
+    try {
+      if('serviceWorker' in navigator && navigator.serviceWorker.controller)
+        navigator.serviceWorker.controller.postMessage({type:'NAG',msg:msg});
+      else showNotification('📢 영어 듣기 알림', msg);
+    } catch(e) {}
+  }, 90*60*1000);
+}
+
+function toggleNotif(){
+  try {
+    if(typeof Notification === 'undefined'){alert('이 브라우저는 알림을 지원하지 않아요');return;}
+    if(state.notif){state.notif=false;clearInterval(nagTimer);save();render();return;}
+    Notification.requestPermission().then(function(perm){
+      if(perm==='granted'){state.notif=true;save();showNotification('알림 설정 완료!','오늘도 영어 듣기 잊지 마세요 🎧');startNagging();render();}
+      else alert('알림 권한이 거부됐어요.');
+    });
+  } catch(e) {
+    alert('이 환경에서는 알림을 사용할 수 없어요.');
+  }
+}
+window.toggleNotif = toggleNotif;
+
+function markDone(){state.history[TODAY]=true;save();try{if(navigator.vibrate)navigator.vibrate([50,30,50]);}catch(e){}render();}
+window.markDone = markDone;
+
+function setTab(t){state.tab=t;save();renderContent();}
+window.setTab = setTab;
+
+function showPage(p){
+  document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(function(el){el.classList.remove('active');});
+  document.getElementById('nav-'+p).classList.add('active');
+  // Scroll to top when switching pages
+  var scroll = document.getElementById('main-scroll');
+  if(scroll) scroll.scrollTop = 0;
+}
+window.showPage = showPage;
+
+function resetData(){
+  if(confirm('모든 기록을 삭제할까요?')){
+    state.history={};listenedToday=new Set();listenedRaw={};todayNewEps=new Set();
+    save();saveListened();render();alert('삭제됐어요.');
+  }
+}
+window.resetData = resetData;
+
+// ── Feed caching ──
+function getFeedCache(id){
+  try{var r=lsGet('feed_'+id,null);if(!r)return null;if(Date.now()-r.ts>CACHE_TTL)return null;return r.data;}
+  catch(e){return null;}
+}
+function setFeedCache(id,data){ lsSet('feed_'+id, {ts:Date.now(), data:data}); }
+
+function fetchFeed(feed){
+  var cached = getFeedCache(feed.id);
+  if(cached) return Promise.resolve({feed:feed, items:cached});
+  return fetch(RSS2JSON + encodeURIComponent(feed.url))
+    .then(function(resp){
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      return resp.json();
+    })
+    .then(function(json){
+      var items = (json.items||[]).slice(0,4).map(function(it){
+        return {title:it.title, link:it.link||it.guid, date:it.pubDate?it.pubDate.slice(0,10):''};
+      });
+      setFeedCache(feed.id, items);
+      return {feed:feed, items:items};
+    })
+    .catch(function(e){
+      return {feed:feed, items:null, error:e.message};
+    });
+}
+
+function renderFeedResult(results){
+  lastFeedResults = results;
+  todayNewEps = new Set();
+  results.forEach(function(r){
+    if(!r.items) return;
+    r.items.forEach(function(it){ if(isToday(it.date)) todayNewEps.add(it.link); });
+  });
+  var wrap = document.getElementById('feeds-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = results.map(function(r){
+    var feed=r.feed, items=r.items, error=r.error;
+    if(error || !items || !items.length)
+      return '<div class="feed-section"><div class="feed-header"><span class="feed-badge '+feed.cls+'">'+feed.badge+'</span><span class="feed-name">'+feed.name+'</span></div><div class="feed-error">피드를 불러오지 못했어요.<br><small>'+(error||'')+'</small></div></div>';
+    var todayItems = items.filter(function(it){return isToday(it.date);});
+    var weekItems = items.filter(function(it){return !isToday(it.date)&&isThisWeek(it.date);});
+    var showOld = todayItems.length===0 && weekItems.length===0;
+    var rows = '';
+    todayItems.forEach(function(it){rows+=epRow(it,true);});
+    weekItems.forEach(function(it){rows+=epRow(it,false);});
+    if(showOld){rows+='<div class="no-new">이번 주 새 에피소드 없음</div>';items.slice(0,1).forEach(function(it){rows+=epRow(it,false);});}
+    return '<div class="feed-section"><div class="feed-header"><span class="feed-badge '+feed.cls+'">'+feed.badge+'</span><span class="feed-name">'+feed.name+'</span></div>'+rows+'</div>';
+  }).join('');
+  renderActionArea();
+}
+
+function epRow(it,isNew){
+  var listened = listenedToday.has(it.link);
+  var safeUrl = it.link.replace(/'/g,'%27');
+  return '<div class="feed-item '+(listened?'listened':'')+'" onclick="onEpisodeTap(\''+safeUrl+'\')">' +
+    '<svg class="ep-check" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">' +
+    '<circle class="circle" cx="11" cy="11" r="9"/>' +
+    '<polyline class="tick" points="6.5,11.5 9.5,14.5 15.5,8"/></svg>' +
+    '<div class="ep-body"><div class="fi-title">'+it.title+'</div>' +
+    '<div class="fi-meta">'+(isNew?'<span class="fi-new">NEW</span>':'')+' '+(listened?'<span class="fi-ok">열어봄 ✓</span>':'')+'<span>'+relDate(it.date)+'</span></div></div></div>';
+}
+
+function renderActionArea(){
+  var aw = document.getElementById('action-wrap'); if(!aw) return;
+  var done = !!state.history[TODAY];
+  if(done){
+    var wasAuto = todayNewEps.size>0 && Array.from(todayNewEps).every(function(u){return listenedToday.has(u);});
+    aw.innerHTML = '<div class="done-banner"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="font-size:15px;font-weight:700;color:var(--green)">오늘 완료!</div><div class="done-how">'+(wasAuto?'NEW 에피소드를 모두 열어서 자동 완료됐어요':'완료 체크됨')+'</div></div>';
+    return;
+  }
+  var total = todayNewEps.size;
+  var opened = Array.from(todayNewEps).filter(function(u){return listenedToday.has(u);}).length;
+  var pct = total>0?Math.round((opened/total)*100):0;
+  var progressHtml = total>0?'<div class="ep-progress-wrap"><div class="ep-progress-top"><span class="ep-progress-label">오늘 NEW 에피소드 진행</span><span class="ep-progress-count">'+opened+' / '+total+'</span></div><div class="ep-bar-bg"><div class="ep-bar-fill" style="width:'+pct+'%"></div></div><div class="ep-hint">모두 열면 자동으로 완료 처리돼요 ✓</div></div>':'';
+  aw.innerHTML = progressHtml + '<button class="btn-done" onclick="markDone()">오늘 듣기 완료 수동 체크 ✓</button>';
+}
+
+function render(){
+  try {
+    var done = !!state.history[TODAY], streak = calcStreak(), fd = firstDay(), nl = nagLevel();
+    document.getElementById('h-date').textContent = todayFull();
+    var nb = document.getElementById('notif-btn');
+    nb.textContent = state.notif?'🔔 켜짐':'🔔 알림';
+    nb.className = 'notif-btn'+(state.notif?' on':'');
+    var snb = document.getElementById('s-notif-btn');
+    if(snb){snb.textContent=state.notif?'끄기':'켜기';snb.className='toggle-btn '+(state.notif?'on':'off');}
+
+    var nagTexts = ['','오늘 영어 듣기 아직 안 했어요. 지금 해요!','벌써 오후예요! 지금 안 하면 또 미룰 거잖아요 😅','오늘 다 갔어요!! 자기 전에 꼭 들으세요!! 🚨'];
+    document.getElementById('nag-wrap').innerHTML = nl>0?'<div class="nag l'+nl+'">'+nagTexts[nl]+'</div>':'';
+
+    // Hero text update
+    var heroText = document.querySelector('.hero-text');
+    if(heroText){
+      if(done) heroText.textContent = '오늘도 잘 했어요! 내일 또 만나요 🌟';
+      else if(nl>=2) heroText.textContent = '아직 안 들었어요! 지금 시작하세요 🔥';
+      else heroText.textContent = '오늘도 영어 듣기, 시작해볼까요?';
+    }
+
+    var pw = document.getElementById('progress-wrap');
+    if(fd){
+      var elapsed = daysBetween(fd,TODAY)+1, weekNum = Math.ceil(elapsed/7), d2 = totalDone(), pct = Math.round((d2/elapsed)*100);
+      pw.innerHTML = '<div class="section-label">전체 진행 현황</div>' +
+        '<div class="progress-card"><div style="font-size:12px;color:var(--text3)">시작: '+formatKo(fd)+'</div>' +
+        '<div class="progress-row"><div><span class="pi-label">경과</span><span class="pi-val">'+weekNum+'주째 · '+elapsed+'일</span></div>' +
+        '<div><span class="pi-label">연속</span><span class="pi-val" style="color:var(--orange)">'+streak+'일 🔥</span></div>' +
+        '<div><span class="pi-label">달성</span><span class="pi-val" style="color:var(--green)">'+d2+'일</span></div></div>' +
+        '<div class="bar-bg"><div class="bar-fill" style="width:'+pct+'%"></div></div>' +
+        '<div class="bar-label">달성률 '+pct+'%</div></div>';
+    } else {
+      pw.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:4px 0">아직 기록이 없어요. 오늘 첫 완료를 해보세요!</div>';
+    }
+
+    document.getElementById('stats-grid').innerHTML =
+      '<div class="stat-card"><div class="stat-num" style="color:var(--orange)">'+streak+'</div><div class="stat-label">연속 🔥</div></div>' +
+      '<div class="stat-card"><div class="stat-num">'+totalDone()+'</div><div class="stat-label">누적</div></div>' +
+      '<div class="stat-card '+(done?'today-done':'')+'"><div class="stat-num" style="color:'+(done?'var(--green)':'var(--red)')+'">'+( done?'✓':'✗')+'</div><div class="stat-label">오늘</div></div>';
+
+    var weekDays = getWeekDays();
+    var wl = document.getElementById('week-label');
+    var d0 = new Date(weekDays[0]+'T12:00:00'), d6 = new Date(weekDays[6]+'T12:00:00');
+    if(wl) wl.textContent = (d0.getMonth()+1)+'월 '+d0.getDate()+'일 ~ '+(d6.getMonth()+1)+'월 '+d6.getDate()+'일';
+
+    document.getElementById('week-grid').innerHTML = weekDays.map(function(day,i){
+      var isDone = !!state.history[day];
+      var isT = day===TODAY;
+      var isFuture = day>TODAY;
+      var boxCls = isDone?'done':isT?'today':isFuture?'future':'past';
+      var nameCls = i===0?'day-name sun':i===6?'day-name sat':isT?'day-name today-lbl':'day-name';
+      var numCls = isT?'day-num today-lbl':'day-num';
+      var date = new Date(day+'T12:00:00');
+      return '<div class="day-cell"><div class="day-box '+boxCls+'">'+(isDone?'✓':'')+'</div><div class="'+nameCls+'">'+DAYNAMES[i]+'</div><div class="'+numCls+'">'+date.getDate()+'</div></div>';
+    }).join('');
+
+    renderActionArea();
+    renderContent();
+    renderInstall();
+  } catch(e) {
+    console.error('render error:', e);
+  }
+}
+
+var CONTENT = {
+  bbc:{label:'BBC',cls:'bbc',url:'https://www.bbc.co.uk/learningenglish',items:[
+    ['6 Minute English','https://www.bbc.co.uk/learningenglish/english/features/6-minute-english','초·중급 • 6분'],
+    ['News Review','https://www.bbc.co.uk/learningenglish/english/features/news-review','중·고급 • 뉴스'],
+    ['Global News Podcast','https://www.bbc.co.uk/programmes/p02nq0gn/episodes/downloads','고급 • 팟캐스트'],
+    ['The English We Speak','https://www.bbc.co.uk/learningenglish/english/features/the-english-we-speak','관용어 • 3분'],
+  ]},
+  voa:{label:'VOA',cls:'voa',url:'https://learningenglish.voanews.com/',items:[
+    ['Learning English','https://learningenglish.voanews.com/','전체 콘텐츠 모음'],
+    ['Everyday Grammar','https://learningenglish.voanews.com/z/4692','문법 • 듣기'],
+    ['VOA60','https://learningenglish.voanews.com/z/4945','1분 뉴스 요약'],
+    ['Words and Their Stories','https://learningenglish.voanews.com/z/1461','숙어·표현 설명'],
+  ]}
+};
+
+function renderContent(){
+  var t = CONTENT[state.tab];
+  document.getElementById('tab-bbc').className = 'tab'+(state.tab==='bbc'?' active-bbc':'');
+  document.getElementById('tab-voa').className = 'tab'+(state.tab==='voa'?' active-voa':'');
+  document.getElementById('content-list').innerHTML =
+    '<a href="'+t.url+'" target="_blank" rel="noopener" class="open-btn '+t.cls+'" onclick="event.preventDefault();openUrl(\''+t.url+'\')">'+t.label+' 바로 열기 →</a>' +
+    t.items.map(function(arr){return '<a href="'+arr[1]+'" target="_blank" rel="noopener" class="content-item" onclick="event.preventDefault();openUrl(\''+arr[1]+'\')"><span style="font-size:14px">'+arr[0]+'</span><span class="ci-desc">'+arr[2]+'</span></a>';}).join('');
+}
+
+function renderInstall(){
+  var el = document.getElementById('install-section'); if(!el) return;
+  var html = '';
+  if(isStandalone) html = '<div class="section-label">앱 상태</div><div style="font-size:13px;color:var(--green);padding:4px 0">✓ 홈 화면에 설치됨</div>';
+  else if(deferredInstall) html = '<div class="section-label">홈 화면 설치</div><div class="settings-row"><div><p>앱으로 설치하기</p><small>홈 화면에 추가해서 앱처럼 사용</small></div><button class="btn-install" onclick="doInstall()">설치</button></div>';
+  else html = '<div class="section-label">홈 화면 설치</div><div class="install-hint">'+(isIOS?'📱 Safari 하단 공유버튼(□↑) → "홈 화면에 추가"':'📱 브라우저 메뉴(⋮) → "홈 화면에 추가"')+'</div>';
+  el.innerHTML = html;
+}
+
+function doInstall(){
+  if(!deferredInstall) return;
+  deferredInstall.prompt();
+  deferredInstall.userChoice.then(function(result){
+    if(result.outcome==='accepted'){deferredInstall=null;renderInstall();}
+  });
+}
+window.doInstall = doInstall;
+
+function loadFeeds(forceRefresh){
+  var wrap = document.getElementById('feeds-wrap'); if(!wrap) return;
+  if(forceRefresh) FEEDS.forEach(function(f){ try{localStorage.removeItem('feed_'+f.id);}catch(e){} });
+  var cached = FEEDS.map(function(feed){return {feed:feed, items:getFeedCache(feed.id)};});
+  if(cached.some(function(r){return r.items;})) renderFeedResult(cached);
+  else wrap.innerHTML = '<div class="feed-loading">피드 불러오는 중...</div>';
+  Promise.all(FEEDS.map(function(feed){return fetchFeed(feed);}))
+    .then(function(results){ renderFeedResult(results); })
+    .catch(function(e){ console.error('Feed load error:', e); });
+}
+window.loadFeeds = loadFeeds;
+
+// ── Service Worker (with iOS safety) ──
+try {
+  if('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(function(e){ console.log('SW reg failed:', e); });
+  }
+} catch(e) {}
+
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault(); deferredInstall = e; renderInstall();
+});
+
+// ── Init ──
+try {
+  render();
+  loadFeeds();
+  if(state.notif) startNagging();
+} catch(e) {
+  console.error('Init error:', e);
+}
+
+})();
+</script>
+</body>
+</html>
