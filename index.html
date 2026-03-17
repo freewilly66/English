@@ -63,6 +63,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ep-bar-fill{height:100%;background:var(--green);border-radius:4px;transition:width .4s ease}
 .ep-hint{font-size:11px;color:var(--text3);margin-top:6px;text-align:center}
 .done-banner{background:var(--green-light);border:1px solid var(--green-border);border-radius:var(--radius);padding:20px 16px;text-align:center}
+.btn-done{width:100%;padding:16px;background:var(--green);color:white;border:none;border-radius:var(--radius);font-size:15px;font-weight:600;cursor:pointer;-webkit-appearance:none}
+.btn-done:active{opacity:.7}
 .done-banner.auto{animation:pop .5s ease forwards}
 .done-how{font-size:11px;color:var(--text2);margin-top:6px}
 .feed-section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-bottom:10px}
@@ -262,8 +264,16 @@ var isStandalone=window.navigator.standalone===true||window.matchMedia('(display
 function lsG(k,f){try{var v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
 function lsS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 var TODAY=new Date().toISOString().split('T')[0];
-var RSS2J='https://api.rss2json.com/v1/api.json?count=4&rss_url=';
 var CTL=3600000;
+// Multiple CORS proxies - try in order until one works
+var PROXIES=[
+  {name:'direct',url:'',type:'xml'},
+  {name:'allorigins',url:'https://api.allorigins.win/get?url=',type:'allorigins'},
+  {name:'corsproxy',url:'https://corsproxy.io/?url=',type:'xml'},
+  {name:'everyorigin',url:'https://everyorigin.jwvbremen.nl/get?url=',type:'allorigins'},
+  {name:'rss2json',url:'https://api.rss2json.com/v1/api.json?count=4&rss_url=',type:'rss2json'},
+  {name:'corsfix',url:'https://proxy.corsfix.com/?',type:'xml'}
+];
 var FEEDS=[
   {id:'bbc-6min',badge:'BBC',cls:'bbc',name:'6 Minute English',url:'https://podcasts.files.bbci.co.uk/p02pc9tn.rss'},
   {id:'bbc-speak',badge:'BBC',cls:'bbc',name:'The English We Speak',url:'https://podcasts.files.bbci.co.uk/p02pc9s3.rss'},
@@ -344,6 +354,8 @@ window.toggleNotif=toggleNotif;
 function setWeeklyGoal(n){S.weeklyGoal=n;sv();rS();}window.setWeeklyGoal=setWeeklyGoal;
 function setDailyMin(v){var n=parseInt(v)||30;if(n<5)n=5;if(n>120)n=120;S.dailyMinGoal=n;sv();var el=document.getElementById('min-input');if(el)el.value=n;}window.setDailyMin=setDailyMin;
 function setReminderTime(v){if(!v)return;var p=v.split(':');S.reminderHour=parseInt(p[0])||9;S.reminderMin=parseInt(p[1])||0;sv();}window.setReminderTime=setReminderTime;
+function markDone(){S.history[TODAY]=true;sv();try{if(navigator.vibrate)navigator.vibrate([50,30,50]);}catch(e){}render();}
+window.markDone=markDone;
 function setTab(t){S.tab=t;sv();rC();}window.setTab=setTab;
 function showPage(p){document.querySelectorAll('.page').forEach(function(e){e.classList.remove('active');});document.getElementById('page-'+p).classList.add('active');document.querySelectorAll('.nav-btn').forEach(function(e){e.classList.remove('active');});document.getElementById('nav-'+p).classList.add('active');document.getElementById('main-scroll').scrollTop=0;if(p==='settings'){rS();rCal();}}
 window.showPage=showPage;
@@ -355,23 +367,87 @@ function rCal(){var mE=document.getElementById('cal-month'),gE=document.getEleme
 function gFC(id){try{var r=lsG('feed_'+id,null);if(!r)return null;if(Date.now()-r.ts>CTL)return null;return r.data;}catch(e){return null;}}
 function gFCStale(id){try{var r=lsG('feed_'+id,null);if(!r)return null;return r.data;}catch(e){return null;}}
 function sFC(id,data){lsS('feed_'+id,{ts:Date.now(),data:data});}
+
+// ── Parse RSS XML ──
+function parseRssXml(xmlText){
+  try{
+    var parser=new DOMParser();
+    var doc=parser.parseFromString(xmlText,'text/xml');
+    if(doc.querySelector('parsererror'))return null;
+    var items=doc.querySelectorAll('item');
+    if(!items.length)items=doc.querySelectorAll('entry'); // Atom
+    var result=[];
+    for(var i=0;i<Math.min(items.length,4);i++){
+      var it=items[i];
+      var title=(it.querySelector('title')||{}).textContent||'';
+      var link=(it.querySelector('link')||{}).textContent||'';
+      if(!link){var linkEl=it.querySelector('link[href]');if(linkEl)link=linkEl.getAttribute('href')||'';}
+      var guid=(it.querySelector('guid')||{}).textContent||'';
+      var pubDate=(it.querySelector('pubDate')||{}).textContent||'';
+      if(!pubDate)pubDate=(it.querySelector('published')||{}).textContent||'';
+      var desc=(it.querySelector('description')||{}).textContent||'';
+      if(!desc)desc=(it.querySelector('summary')||{}).textContent||'';
+      var date='';
+      if(pubDate){try{date=new Date(pubDate).toISOString().slice(0,10);}catch(e){}}
+      result.push({title:title.trim(),link:(link||guid).trim(),date:date,desc:desc});
+    }
+    return result.length>0?result:null;
+  }catch(e){return null;}
+}
+
+// ── iOS-safe fetch with timeout ──
+function fetchTimeout(url,ms){
+  return new Promise(function(resolve,reject){
+    var timer=setTimeout(function(){reject(new Error('timeout'));},ms);
+    fetch(url).then(function(r){clearTimeout(timer);resolve(r);}).catch(function(e){clearTimeout(timer);reject(e);});
+  });
+}
+
+// ── Fetch feed with multiple proxy fallback ──
 function fF(feed){
   var c=gFC(feed.id);
   if(c)return Promise.resolve({feed:feed,items:c});
-  return fetch(RSS2J+encodeURIComponent(feed.url)).then(function(r){
-    if(!r.ok)throw new Error('HTTP '+r.status);return r.json();
-  }).then(function(j){
-    var items=(j.items||[]).slice(0,4).map(function(it){
-      return{title:it.title,link:it.link||it.guid,date:it.pubDate?it.pubDate.slice(0,10):'',desc:it.description||it.content||''};
-    });
-    sFC(feed.id,items);return{feed:feed,items:items};
-  }).catch(function(e){
-    // Network failed — try stale cache as fallback
-    var stale=gFCStale(feed.id);
-    if(stale)return{feed:feed,items:stale,stale:true};
-    return{feed:feed,items:null,error:e.message};
-  });
+
+  function tryProxy(idx){
+    if(idx>=PROXIES.length){
+      var stale=gFCStale(feed.id);
+      if(stale)return Promise.resolve({feed:feed,items:stale,stale:true});
+      return Promise.resolve({feed:feed,items:null,error:'모든 소스 실패'});
+    }
+    var p=PROXIES[idx];
+    var url=p.url?p.url+encodeURIComponent(feed.url):feed.url;
+
+    return fetchTimeout(url,8000)
+      .then(function(r){
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        if(p.type==='rss2json')return r.json();
+        if(p.type==='allorigins')return r.json();
+        return r.text();
+      })
+      .then(function(data){
+        var items=null;
+        if(p.type==='rss2json'){
+          try{items=(data.items||[]).slice(0,4).map(function(it){
+            return{title:it.title,link:it.link||it.guid,date:it.pubDate?it.pubDate.slice(0,10):'',desc:it.description||it.content||''};
+          });}catch(e){}
+        }else if(p.type==='allorigins'){
+          var xml=(data&&data.contents)?data.contents:'';
+          if(xml)items=parseRssXml(xml);
+        }else{
+          items=parseRssXml(data);
+        }
+        if(!items||!items.length)throw new Error('empty');
+        sFC(feed.id,items);
+        return{feed:feed,items:items};
+      })
+      .catch(function(e){
+        console.log('Proxy '+p.name+' failed for '+feed.id+':',e.message);
+        return tryProxy(idx+1);
+      });
+  }
+  return tryProxy(0);
 }
+
 function renderFR(results){
   lastFR=results;allEps=new Set();
   var w=document.getElementById('feeds-wrap');if(!w)return;
@@ -386,7 +462,23 @@ function renderFR(results){
   rAA();
 }
 function eR(it,isN){var ls=lT.has(it.link),su=it.link.replace(/'/g,'%27');var dh='';if(isN)dh='<span class="fi-new">NEW</span>';else if(it.date){var d=new Date(it.date+'T12:00:00');dh='<span class="fi-date">'+(d.getMonth()+1)+'월 '+d.getDate()+'일</span>';}var aiBadge='';if(analyzedEps[it.link])aiBadge='<span class="ai-badge">AI ✓</span>';else if(analyzingEps[it.link])aiBadge='<span class="ai-loading">AI 분석중…</span>';return'<div class="feed-item '+(ls?'listened':'')+'" onclick="onEpisodeTap(\''+su+'\')"><svg class="ep-check" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle class="circle" cx="11" cy="11" r="9"/><polyline class="tick" points="6.5,11.5 9.5,14.5 15.5,8"/></svg><div class="ep-body"><div class="fi-title">'+it.title+'</div><div class="fi-meta">'+dh+' '+(ls?'<span class="fi-ok">✓ 열어봄</span>':'')+aiBadge+'</div></div></div>';}
-function rAA(){var aw=document.getElementById('action-wrap');if(!aw)return;if(S.history[TODAY]){aw.innerHTML='<div class="done-banner"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="font-size:15px;font-weight:700;color:var(--green)">오늘 완료!</div><div class="done-how">모든 콘텐츠를 확인했어요</div></div>';return;}var tot=allEps.size,op=Array.from(allEps).filter(function(u){return lT.has(u);}).length,pct=tot>0?Math.round(op/tot*100):0;if(tot>0)aw.innerHTML='<div class="ep-progress-wrap"><div class="ep-progress-top"><span class="ep-progress-label">오늘 콘텐츠 확인</span><span class="ep-progress-count">'+op+' / '+tot+'</span></div><div class="ep-bar-bg"><div class="ep-bar-fill" style="width:'+pct+'%"></div></div><div class="ep-hint">👆 위 콘텐츠를 모두 열면 자동으로 완료 처리돼요</div></div>';else aw.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0;text-align:center">피드를 불러오면 콘텐츠가 표시됩니다</div>';}
+function rAA(){
+  var aw=document.getElementById('action-wrap');if(!aw)return;
+  if(S.history[TODAY]){
+    aw.innerHTML='<div class="done-banner"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="font-size:15px;font-weight:700;color:var(--green)">오늘 완료!</div><div class="done-how">모든 콘텐츠를 확인했어요</div></div>';
+    return;
+  }
+  var tot=allEps.size;
+  var op=Array.from(allEps).filter(function(u){return lT.has(u);}).length;
+  var pct=tot>0?Math.round(op/tot*100):0;
+  var html='';
+  if(tot>0){
+    html+='<div class="ep-progress-wrap"><div class="ep-progress-top"><span class="ep-progress-label">오늘 콘텐츠 확인</span><span class="ep-progress-count">'+op+' / '+tot+'</span></div><div class="ep-bar-bg"><div class="ep-bar-fill" style="width:'+pct+'%"></div></div><div class="ep-hint">👆 위 콘텐츠를 모두 열면 자동으로 완료 처리돼요</div></div>';
+  }
+  // Always show manual button
+  html+='<button class="btn-done" onclick="markDone()" style="margin-top:8px">오늘 듣기 완료 수동 체크 ✓</button>';
+  aw.innerHTML=html;
+}
 function rS(){var gb=document.getElementById('goal-btns');if(gb)gb.innerHTML=[5,6,7].map(function(n){return'<button class="gbtn'+(S.weeklyGoal===n?' active':'')+'" onclick="setWeeklyGoal('+n+')">'+n+'일</button>';}).join('');var snb=document.getElementById('s-notif-btn');if(snb){snb.textContent=S.notif?'끄기':'켜기';snb.className='toggle-btn '+(S.notif?'on':'off');}var ti=document.getElementById('time-input');if(ti)ti.value=String(S.reminderHour).padStart(2,'0')+':'+String(S.reminderMin).padStart(2,'0');var mi=document.getElementById('min-input');if(mi)mi.value=S.dailyMinGoal;var sdl=document.getElementById('start-date-label');if(sdl){var fd2=fD();sdl.textContent=fd2?'현재 시작일: '+fK(fd2):'아직 기록 없음';}renderPhoto();renderApiKeyStatus();}
 function render(){try{var dn=!!S.history[TODAY],st=cSt(),fd=fD(),nl=nL();document.getElementById('h-date').textContent=tF();var nb=document.getElementById('notif-btn');nb.textContent=S.notif?'🔔 알림 끄기':'🔕 알림 켜기';nb.className='notif-btn'+(S.notif?' on':'');var ht=document.getElementById('hero-text');if(ht){if(dn)ht.textContent='오늘도 잘 했어요! 내일 또 만나요 🌟';else if(nl>=2)ht.textContent='아직 안 들었어요! 지금 시작하세요 🔥';else ht.textContent='오늘도 영어 듣기, 시작해볼까요?';}var qb=document.getElementById('quote-box');if(qb){var q=getQ();qb.innerHTML='<div class="quote-en">"'+q.e+'"</div><div class="quote-ko">'+q.k+'</div><div class="quote-by">— '+q.b+'</div>';}var nT=['','오늘 영어 듣기 아직 안 했어요. 지금 해요!','벌써 오후예요! 지금 안 하면 또 미룰 거잖아요 😅','오늘 다 갔어요!! 자기 전에 꼭 들으세요!! 🚨'];document.getElementById('nag-wrap').innerHTML=nl>0?'<div class="nag l'+nl+'">'+nT[nl]+'</div>':'';var pw=document.getElementById('progress-wrap');if(fd){var el=dB(fd,TODAY)+1;pw.innerHTML='<div class="section-label">진행 현황</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px"><div class="info-line"><span>시작일</span><span class="val">'+fK(fd)+'</span></div><div class="info-line"><span>경과</span><span class="val">'+Math.ceil(el/7)+'주째 · '+el+'일</span></div><div class="info-line"><span>연속</span><span class="val" style="color:var(--orange)">'+st+'일 🔥</span></div><div class="info-line"><span>주간 목표</span><span class="val">'+S.weeklyGoal+'일 / 학습 '+S.dailyMinGoal+'분</span></div></div>';}else pw.innerHTML='<div style="font-size:13px;color:var(--text2);padding:4px 0">아직 기록이 없어요. 오늘 첫 완료를 해보세요!</div>';document.getElementById('stats-grid').innerHTML='<div class="stat-card"><div class="stat-num" style="color:var(--orange)">'+st+'</div><div class="stat-label">연속 🔥</div></div><div class="stat-card"><div class="stat-num">'+tD()+'</div><div class="stat-label">누적</div></div><div class="stat-card '+(dn?'today-done':'')+'"><div class="stat-num" style="color:'+(dn?'var(--green)':'var(--red)')+'">'+(dn?'✓':'✗')+'</div><div class="stat-label">오늘</div></div>';var wD=gW(),wl=document.getElementById('week-label'),d0=new Date(wD[0]+'T12:00:00'),d6=new Date(wD[6]+'T12:00:00');if(wl)wl.textContent=(d0.getMonth()+1)+'월 '+d0.getDate()+'일 ~ '+(d6.getMonth()+1)+'월 '+d6.getDate()+'일';document.getElementById('week-grid').innerHTML=wD.map(function(day,i){var id=!!S.history[day],it=day===TODAY,iF=day>TODAY;var bc=id?'done':it?'today':iF?'future':'past';var nc=i===0?'day-name sun':i===6?'day-name sat':it?'day-name today-lbl':'day-name';var nc2=it?'day-num today-lbl':'day-num';var dt=new Date(day+'T12:00:00');return'<div class="day-cell"><div class="day-box '+bc+'">'+(id?'✓':'')+'</div><div class="'+nc+'">'+DN[i]+'</div><div class="'+nc2+'">'+dt.getDate()+'</div></div>';}).join('');rAA();rC();renderPhoto();}catch(e){console.error('render:',e);}}
 var CT={bbc:{label:'BBC',cls:'bbc',url:'https://www.bbc.co.uk/learningenglish',items:[['6 Minute English','https://www.bbc.co.uk/learningenglish/english/features/6-minute-english','초·중급 • 6분'],['News Review','https://www.bbc.co.uk/learningenglish/english/features/news-review','중·고급 • 뉴스'],['Global News Podcast','https://www.bbc.co.uk/programmes/p02nq0gn/episodes/downloads','고급 • 팟캐스트'],['The English We Speak','https://www.bbc.co.uk/learningenglish/english/features/the-english-we-speak','관용어 • 3분']]},voa:{label:'VOA',cls:'voa',url:'https://learningenglish.voanews.com/',items:[['Learning English','https://learningenglish.voanews.com/','전체 콘텐츠 모음'],['Everyday Grammar','https://learningenglish.voanews.com/z/4692','문법 • 듣기'],['VOA60','https://learningenglish.voanews.com/z/4945','1분 뉴스 요약'],['Words and Their Stories','https://learningenglish.voanews.com/z/1461','숙어·표현 설명']]}};
@@ -677,17 +769,21 @@ function analyzeEp(url){
 function loadFeeds(fr){
   var w=document.getElementById('feeds-wrap');if(!w)return;
   if(fr)FEEDS.forEach(function(f){try{localStorage.removeItem('feed_'+f.id);}catch(e){}});
-  // Show fresh cache first, then stale cache, then loading
+  // Show stale cache immediately while fetching
   var ca=FEEDS.map(function(f){
-    var fresh=gFC(f.id);
-    if(fresh)return{feed:f,items:fresh};
-    var stale=gFCStale(f.id);
-    if(stale)return{feed:f,items:stale,stale:true};
+    var fresh=gFC(f.id);if(fresh)return{feed:f,items:fresh};
+    var stale=gFCStale(f.id);if(stale)return{feed:f,items:stale,stale:true};
     return{feed:f,items:null};
   });
   if(ca.some(function(r){return r.items;}))renderFR(ca);
   else w.innerHTML='<div class="feed-loading">피드 불러오는 중...</div>';
-  Promise.all(FEEDS.map(fF)).then(function(results){renderFR(results);}).catch(function(e){console.error('Feed:',e);});
+  Promise.all(FEEDS.map(fF)).then(function(results){
+    renderFR(results);
+    var loaded=results.filter(function(r){return r.items&&r.items.length;}).length;
+    var failed=results.length-loaded;
+    if(loaded>0&&failed>0)showToast(loaded+'개 피드 로드 / '+failed+'개 실패','info');
+    else if(loaded===0)showToast('피드를 불러오지 못했어요. 새로고침 해보세요.','err');
+  }).catch(function(e){console.error('Feed:',e);});
 }
 window.loadFeeds=loadFeeds;
 // ── Photo upload with compression ──
