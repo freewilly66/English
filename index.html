@@ -574,10 +574,11 @@ function render(){try{
   var pw=document.getElementById('prog-w');
   if(fd){
     var el=dBtw(fd,TD)+1;var wNum=Math.ceil(el/7);
+    var now=new Date(),startOfYear=new Date(now.getFullYear(),0,1),yearDay=Math.ceil((now-startOfYear)/864e5),yearWeek=Math.ceil(yearDay/7);
     var todayMin=watchLog[TD]?Math.floor(watchLog[TD]/60):0;
     pw.innerHTML='<div class="slb">진행 현황</div><div class="ibox">'+
       '<div class="il"><span>시작일</span><span class="v">'+fKo(fd)+'</span></div>'+
-      '<div class="il"><span>경과</span><span class="v">'+wNum+'주째 · '+el+'일차</span></div>'+
+      '<div class="il"><span>경과 (오늘은 '+now.getFullYear()+'년 '+yearWeek+'주 '+yearDay+'일째입니다)</span><span class="v">'+wNum+'주째 · '+el+'일차</span></div>'+
       '<div class="il"><span>연속</span><span class="v" style="color:var(--warm)">'+st+'일 🔥</span></div>'+
       '<div class="il"><span>주간 목표</span><span class="v">'+S.wGoal+'일 / '+S.dMin+'분</span></div>'+
       (todayMin>0?'<div class="il"><span>오늘 학습</span><span class="v" style="color:var(--pri)">'+todayMin+'분</span></div>':'')+
