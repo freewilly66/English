@@ -108,13 +108,26 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .btn-man{width:100%;padding:12px;background:var(--pri);color:#fff;border:none;border-radius:var(--rad);font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none;margin-top:6px}
 .btn-man:active{opacity:.7}
 /* Content tab */
-.vtb{display:flex;gap:3px;margin-bottom:10px;background:var(--sf2);padding:3px;border-radius:var(--rad-s)}
-.vtb button{flex:1;padding:7px 2px;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:var(--tx2);-webkit-appearance:none;white-space:nowrap}
-.vtb button.on{background:var(--pri);color:#fff}
-.olink{display:block;padding:11px 14px;border-radius:var(--rad-s);font-size:13px;font-weight:700;color:#fff;text-align:center;text-decoration:none;margin-bottom:8px}
-.olink.bbc{background:var(--bbc)}.olink.voa{background:var(--voa)}
-.citem{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd);text-decoration:none;color:var(--tx)}.citem:last-child{border-bottom:none}
-.cdesc{font-size:10px;color:var(--tx3)}
+.vtb{display:flex;gap:3px;margin-bottom:14px;background:var(--sf2);padding:3px;border-radius:var(--rad-s)}
+.vtb button{flex:1;padding:8px 2px;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:var(--tx2);-webkit-appearance:none;white-space:nowrap;transition:all .2s}
+.vtb button.on{background:var(--pri);color:#fff;box-shadow:0 2px 8px rgba(22,160,133,.3)}
+/* Channel Cards */
+.ch-card{border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.ch-card.bbc{background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%)}
+.ch-card.voa{background:linear-gradient(135deg,#1a5276 0%,#2980b9 100%)}
+@media(prefers-color-scheme:dark){
+  .ch-card.bbc{background:linear-gradient(135deg,#7b1a1a 0%,#c0392b 100%)}
+  .ch-card.voa{background:linear-gradient(135deg,#0d2b3e 0%,#1a5276 100%)}
+}
+.ch-inner{padding:20px}
+.ch-brand{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ch-logo{font-size:11px;font-weight:900;color:#fff;background:rgba(255,255,255,.25);padding:4px 10px;border-radius:6px;letter-spacing:.05em}
+.ch-name{font-size:13px;font-weight:700;color:rgba(255,255,255,.9)}
+.ch-desc{font-size:12px;color:rgba(255,255,255,.8);line-height:1.6;margin-bottom:16px}
+.ch-btn{display:block;width:100%;padding:12px;background:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;text-align:center;text-decoration:none;-webkit-appearance:none;transition:transform .15s,opacity .15s;letter-spacing:-.2px}
+.ch-btn.bbc{color:var(--bbc)}
+.ch-btn.voa{color:var(--voa)}
+.ch-btn:active{transform:scale(.97);opacity:.85}
 /* Vocab */
 .vadd{width:100%;padding:11px;background:var(--sf);border:2px dashed var(--bd);border-radius:var(--rad-s);color:var(--tx3);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px;-webkit-appearance:none}
 .vadd:active{background:var(--sf2)}
@@ -525,8 +538,14 @@ function rSet(){
 }
 
 // ── Content tab render ──
-var CT={bbc:{label:'BBC',cls:'bbc',url:'https://www.youtube.com/@bbclearningenglish',items:[['6 Minute English','https://www.youtube.com/playlist?list=PLcetZ6gSk96-FECmH9l7Vlx5VDigvgkzp','초·중급 • 6분'],['The English We Speak','https://www.youtube.com/playlist?list=PLcetZ6gSk96yyqJSI8vxNaOpHrmeLBwYD','관용어 • 3분'],['News Review','https://www.youtube.com/playlist?list=PLcetZ6gSk96-5DGCSTxIq0Sy_sbiAYtyJ','중·고급 • 뉴스']]},
-  voa:{label:'VOA',cls:'voa',url:'https://www.youtube.com/@voabordo',items:[['Learning English','https://www.youtube.com/@VOALearningEnglish','전체'],['Everyday Grammar','https://www.youtube.com/playlist?list=PLNmsVeXQBfxYLJbd_wSZnJ0CqtaSm4Tfy','문법'],['Words and Stories','https://www.youtube.com/playlist?list=PLNmsVeXQBfxba0Ei96bQ8PD5i0OsSuaeM','숙어·표현']]}};
+var CT={
+  bbc:{label:'BBC',cls:'bbc',url:'https://www.youtube.com/@bbclearningenglish',
+    name:'BBC Learning English',
+    desc:'발음·문법·어휘·표현까지 — BBC가 직접 만든 영어 학습 채널. 6분 영어, 뉴스 리뷰, 일상 표현 등 다양한 시리즈 제공.'},
+  voa:{label:'VOA',cls:'voa',url:'https://www.youtube.com/@VOALearningEnglish',
+    name:'VOA Learning English',
+    desc:'미국의 소리(Voice of America) 공식 영어 학습 채널. 느린 속도의 뉴스 영어와 실용 표현으로 청취력을 키워요.'}
+};
 function rContent(){
   var isV=S.tab==='vocab';
   document.getElementById('vt-bbc').className=S.tab==='bbc'?'on':'';
@@ -536,7 +555,12 @@ function rContent(){
   document.getElementById('varea').style.display=isV?'block':'none';
   if(isV){rVocab();return;}
   var t=CT[S.tab];
-  document.getElementById('clist').innerHTML='<a href="'+t.url+'" target="_blank" rel="noopener" class="olink '+t.cls+'" onclick="event.preventDefault();openUrl(\''+t.url+'\')">'+t.label+' 유튜브 바로가기 →</a>'+t.items.map(function(a){return'<a href="'+a[1]+'" target="_blank" rel="noopener" class="citem" onclick="event.preventDefault();openUrl(\''+a[1]+'\')"><span style="font-size:13px;font-weight:600">'+a[0]+'</span><span class="cdesc">'+a[2]+'</span></a>';}).join('');
+  document.getElementById('clist').innerHTML=
+    '<div class="ch-card '+t.cls+'"><div class="ch-inner">'+
+      '<div class="ch-brand"><span class="ch-logo">'+t.label+'</span><span class="ch-name">'+t.name+'</span></div>'+
+      '<div class="ch-desc">'+t.desc+'</div>'+
+      '<button class="ch-btn '+t.cls+'" onclick="openUrl(\''+t.url+'\')">유튜브에서 보기 →</button>'+
+    '</div></div>';
 }
 
 // ── Vocab ──
