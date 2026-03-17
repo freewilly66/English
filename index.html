@@ -316,6 +316,7 @@ var vocabData=lsG('vocab_data',[]);
 var vocabFilter='all';
 var fcIdx=0,fcShow=false,fcList=[];
 var analyzedEps=lsG('analyzed_eps',{});
+var analyzingEps={};  // currently being analyzed
 var CLAUDE_KEY='';
 try{CLAUDE_KEY=localStorage.getItem('claude_api_key')||'';}catch(e){}
 var cY,cM;(function(){var d=new Date();cY=d.getFullYear();cM=d.getMonth();})();
@@ -352,10 +353,39 @@ function importData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();
 function calNav(dir){cM+=dir;if(cM<0){cM=11;cY--;}if(cM>11){cM=0;cY++;}rCal();}window.calNav=calNav;
 function rCal(){var mE=document.getElementById('cal-month'),gE=document.getElementById('cal-grid'),sE=document.getElementById('cal-stats');if(!mE)return;mE.textContent=cY+'년 '+(cM+1)+'월';var f=new Date(cY,cM,1),sd=f.getDay(),dim=new Date(cY,cM+1,0).getDate();var h='';['일','월','화','수','목','금','토'].forEach(function(d){h+='<div class="ch">'+d+'</div>';});for(var i=0;i<sd;i++)h+='<div class="cd"></div>';var md=0;for(var d=1;d<=dim;d++){var ds=cY+'-'+String(cM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');var dn=!!S.history[ds],it=ds===TODAY;if(dn)md++;h+='<div class="cd cm'+(dn?' dn':'')+(it?' tc':'')+'">'+d+'</div>';}gE.innerHTML=h;sE.innerHTML='이번 달 완료: <b>'+md+'일</b> / '+dim+'일';}
 function gFC(id){try{var r=lsG('feed_'+id,null);if(!r)return null;if(Date.now()-r.ts>CTL)return null;return r.data;}catch(e){return null;}}
+function gFCStale(id){try{var r=lsG('feed_'+id,null);if(!r)return null;return r.data;}catch(e){return null;}}
 function sFC(id,data){lsS('feed_'+id,{ts:Date.now(),data:data});}
-function fF(feed){var c=gFC(feed.id);if(c)return Promise.resolve({feed:feed,items:c});return fetch(RSS2J+encodeURIComponent(feed.url)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(j){var items=(j.items||[]).slice(0,4).map(function(it){return{title:it.title,link:it.link||it.guid,date:it.pubDate?it.pubDate.slice(0,10):'',desc:it.description||it.content||''};});sFC(feed.id,items);return{feed:feed,items:items};}).catch(function(e){return{feed:feed,items:null,error:e.message};});}
-function renderFR(results){lastFR=results;allEps=new Set();var w=document.getElementById('feeds-wrap');if(!w)return;w.innerHTML=results.map(function(r){var f=r.feed,items=r.items,er=r.error;if(er||!items||!items.length)return'<div class="feed-section"><div class="feed-header"><span class="feed-badge '+f.cls+'">'+f.badge+'</span><span class="feed-name">'+f.name+'</span></div><div class="feed-error">피드를 불러오지 못했어요.<br><small>'+(er||'')+'</small></div></div>';var lt=items[0];allEps.add(lt.link);return'<div class="feed-section"><div class="feed-header"><span class="feed-badge '+f.cls+'">'+f.badge+'</span><span class="feed-name">'+f.name+'</span></div>'+eR(lt,isTd(lt.date))+'</div>';}).join('');rAA();}
-function eR(it,isN){var ls=lT.has(it.link),su=it.link.replace(/'/g,'%27');var dh='';if(isN)dh='<span class="fi-new">NEW</span>';else if(it.date){var d=new Date(it.date+'T12:00:00');dh='<span class="fi-date">'+(d.getMonth()+1)+'월 '+d.getDate()+'일</span>';}var aiBadge=analyzedEps[it.link]?'<span class="ai-badge">AI ✓</span>':'';return'<div class="feed-item '+(ls?'listened':'')+'" onclick="onEpisodeTap(\''+su+'\')"><svg class="ep-check" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle class="circle" cx="11" cy="11" r="9"/><polyline class="tick" points="6.5,11.5 9.5,14.5 15.5,8"/></svg><div class="ep-body"><div class="fi-title">'+it.title+'</div><div class="fi-meta">'+dh+' '+(ls?'<span class="fi-ok">✓ 열어봄</span>':'')+aiBadge+'</div></div></div>';}
+function fF(feed){
+  var c=gFC(feed.id);
+  if(c)return Promise.resolve({feed:feed,items:c});
+  return fetch(RSS2J+encodeURIComponent(feed.url)).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);return r.json();
+  }).then(function(j){
+    var items=(j.items||[]).slice(0,4).map(function(it){
+      return{title:it.title,link:it.link||it.guid,date:it.pubDate?it.pubDate.slice(0,10):'',desc:it.description||it.content||''};
+    });
+    sFC(feed.id,items);return{feed:feed,items:items};
+  }).catch(function(e){
+    // Network failed — try stale cache as fallback
+    var stale=gFCStale(feed.id);
+    if(stale)return{feed:feed,items:stale,stale:true};
+    return{feed:feed,items:null,error:e.message};
+  });
+}
+function renderFR(results){
+  lastFR=results;allEps=new Set();
+  var w=document.getElementById('feeds-wrap');if(!w)return;
+  w.innerHTML=results.map(function(r){
+    var f=r.feed,items=r.items,er=r.error,stale=r.stale;
+    if(!items||!items.length)
+      return '<div class="feed-section"><div class="feed-header"><span class="feed-badge '+f.cls+'">'+f.badge+'</span><span class="feed-name">'+f.name+'</span></div><div class="feed-error">피드를 불러오지 못했어요.<br><small>'+(er||'')+'</small></div></div>';
+    var lt=items[0];allEps.add(lt.link);
+    var staleNote=stale?'<div style="font-size:10px;color:var(--orange);padding:4px 14px 0">⚠ 오프라인 — 마지막 불러온 데이터</div>':'';
+    return '<div class="feed-section"><div class="feed-header"><span class="feed-badge '+f.cls+'">'+f.badge+'</span><span class="feed-name">'+f.name+'</span></div>'+eR(lt,isTd(lt.date))+staleNote+'</div>';
+  }).join('');
+  rAA();
+}
+function eR(it,isN){var ls=lT.has(it.link),su=it.link.replace(/'/g,'%27');var dh='';if(isN)dh='<span class="fi-new">NEW</span>';else if(it.date){var d=new Date(it.date+'T12:00:00');dh='<span class="fi-date">'+(d.getMonth()+1)+'월 '+d.getDate()+'일</span>';}var aiBadge='';if(analyzedEps[it.link])aiBadge='<span class="ai-badge">AI ✓</span>';else if(analyzingEps[it.link])aiBadge='<span class="ai-loading">AI 분석중…</span>';return'<div class="feed-item '+(ls?'listened':'')+'" onclick="onEpisodeTap(\''+su+'\')"><svg class="ep-check" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle class="circle" cx="11" cy="11" r="9"/><polyline class="tick" points="6.5,11.5 9.5,14.5 15.5,8"/></svg><div class="ep-body"><div class="fi-title">'+it.title+'</div><div class="fi-meta">'+dh+' '+(ls?'<span class="fi-ok">✓ 열어봄</span>':'')+aiBadge+'</div></div></div>';}
 function rAA(){var aw=document.getElementById('action-wrap');if(!aw)return;if(S.history[TODAY]){aw.innerHTML='<div class="done-banner"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="font-size:15px;font-weight:700;color:var(--green)">오늘 완료!</div><div class="done-how">모든 콘텐츠를 확인했어요</div></div>';return;}var tot=allEps.size,op=Array.from(allEps).filter(function(u){return lT.has(u);}).length,pct=tot>0?Math.round(op/tot*100):0;if(tot>0)aw.innerHTML='<div class="ep-progress-wrap"><div class="ep-progress-top"><span class="ep-progress-label">오늘 콘텐츠 확인</span><span class="ep-progress-count">'+op+' / '+tot+'</span></div><div class="ep-bar-bg"><div class="ep-bar-fill" style="width:'+pct+'%"></div></div><div class="ep-hint">👆 위 콘텐츠를 모두 열면 자동으로 완료 처리돼요</div></div>';else aw.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0;text-align:center">피드를 불러오면 콘텐츠가 표시됩니다</div>';}
 function rS(){var gb=document.getElementById('goal-btns');if(gb)gb.innerHTML=[5,6,7].map(function(n){return'<button class="gbtn'+(S.weeklyGoal===n?' active':'')+'" onclick="setWeeklyGoal('+n+')">'+n+'일</button>';}).join('');var snb=document.getElementById('s-notif-btn');if(snb){snb.textContent=S.notif?'끄기':'켜기';snb.className='toggle-btn '+(S.notif?'on':'off');}var ti=document.getElementById('time-input');if(ti)ti.value=String(S.reminderHour).padStart(2,'0')+':'+String(S.reminderMin).padStart(2,'0');var mi=document.getElementById('min-input');if(mi)mi.value=S.dailyMinGoal;var sdl=document.getElementById('start-date-label');if(sdl){var fd2=fD();sdl.textContent=fd2?'현재 시작일: '+fK(fd2):'아직 기록 없음';}renderPhoto();renderApiKeyStatus();}
 function render(){try{var dn=!!S.history[TODAY],st=cSt(),fd=fD(),nl=nL();document.getElementById('h-date').textContent=tF();var nb=document.getElementById('notif-btn');nb.textContent=S.notif?'🔔 알림 끄기':'🔕 알림 켜기';nb.className='notif-btn'+(S.notif?' on':'');var ht=document.getElementById('hero-text');if(ht){if(dn)ht.textContent='오늘도 잘 했어요! 내일 또 만나요 🌟';else if(nl>=2)ht.textContent='아직 안 들었어요! 지금 시작하세요 🔥';else ht.textContent='오늘도 영어 듣기, 시작해볼까요?';}var qb=document.getElementById('quote-box');if(qb){var q=getQ();qb.innerHTML='<div class="quote-en">"'+q.e+'"</div><div class="quote-ko">'+q.k+'</div><div class="quote-by">— '+q.b+'</div>';}var nT=['','오늘 영어 듣기 아직 안 했어요. 지금 해요!','벌써 오후예요! 지금 안 하면 또 미룰 거잖아요 😅','오늘 다 갔어요!! 자기 전에 꼭 들으세요!! 🚨'];document.getElementById('nag-wrap').innerHTML=nl>0?'<div class="nag l'+nl+'">'+nT[nl]+'</div>':'';var pw=document.getElementById('progress-wrap');if(fd){var el=dB(fd,TODAY)+1;pw.innerHTML='<div class="section-label">진행 현황</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px"><div class="info-line"><span>시작일</span><span class="val">'+fK(fd)+'</span></div><div class="info-line"><span>경과</span><span class="val">'+Math.ceil(el/7)+'주째 · '+el+'일</span></div><div class="info-line"><span>연속</span><span class="val" style="color:var(--orange)">'+st+'일 🔥</span></div><div class="info-line"><span>주간 목표</span><span class="val">'+S.weeklyGoal+'일 / 학습 '+S.dailyMinGoal+'분</span></div></div>';}else pw.innerHTML='<div style="font-size:13px;color:var(--text2);padding:4px 0">아직 기록이 없어요. 오늘 첫 완료를 해보세요!</div>';document.getElementById('stats-grid').innerHTML='<div class="stat-card"><div class="stat-num" style="color:var(--orange)">'+st+'</div><div class="stat-label">연속 🔥</div></div><div class="stat-card"><div class="stat-num">'+tD()+'</div><div class="stat-label">누적</div></div><div class="stat-card '+(dn?'today-done':'')+'"><div class="stat-num" style="color:'+(dn?'var(--green)':'var(--red)')+'">'+(dn?'✓':'✗')+'</div><div class="stat-label">오늘</div></div>';var wD=gW(),wl=document.getElementById('week-label'),d0=new Date(wD[0]+'T12:00:00'),d6=new Date(wD[6]+'T12:00:00');if(wl)wl.textContent=(d0.getMonth()+1)+'월 '+d0.getDate()+'일 ~ '+(d6.getMonth()+1)+'월 '+d6.getDate()+'일';document.getElementById('week-grid').innerHTML=wD.map(function(day,i){var id=!!S.history[day],it=day===TODAY,iF=day>TODAY;var bc=id?'done':it?'today':iF?'future':'past';var nc=i===0?'day-name sun':i===6?'day-name sat':it?'day-name today-lbl':'day-name';var nc2=it?'day-num today-lbl':'day-num';var dt=new Date(day+'T12:00:00');return'<div class="day-cell"><div class="day-box '+bc+'">'+(id?'✓':'')+'</div><div class="'+nc+'">'+DN[i]+'</div><div class="'+nc2+'">'+dt.getDate()+'</div></div>';}).join('');rAA();rC();renderPhoto();}catch(e){console.error('render:',e);}}
@@ -564,51 +594,66 @@ function findEpData(url){
 }
 
 function analyzeEp(url){
-  if(!CLAUDE_KEY)return;
-  if(analyzedEps[url])return; // already analyzed
+  if(!CLAUDE_KEY){return;}
+  if(analyzedEps[url]||analyzingEps[url])return;
   var ep=findEpData(url);if(!ep)return;
   var title=ep.item.title||'';
   var desc=(ep.item.desc||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
   var feedName=ep.feed.name||'';
-  if(!title&&!desc)return;
-  // Limit desc length to save tokens
+  if(!title)return;
   if(desc.length>1500)desc=desc.substring(0,1500)+'...';
 
-  // Show loading indicator on the feed item
-  var feedItems=document.querySelectorAll('.feed-item');
-  feedItems.forEach(function(el){
-    if(el.getAttribute('onclick')&&el.getAttribute('onclick').indexOf(url.replace(/'/g,'%27'))>=0){
-      var meta=el.querySelector('.fi-meta');
-      if(meta&&!meta.querySelector('.ai-loading'))
-        meta.insertAdjacentHTML('beforeend','<span class="ai-loading">AI 분석중…</span>');
-    }
-  });
+  // Mark as analyzing & re-render to show badge
+  analyzingEps[url]=true;
+  renderFR(lastFR);
+  showToast('🤖 AI 단어 분석 시작...','info');
 
-  var prompt='You are an English learning assistant. Analyze this English learning content and extract important vocabulary, idioms, and expressions that Korean learners should know.\n\n'+
-    'Source: '+feedName+'\nTitle: '+title+'\n'+(desc?'Content: '+desc+'\n':'')+
-    '\nExtract 3-6 important items. For each item, provide:\n- The English word/phrase\n- Korean meaning\n- Category: one of 단어, 관용구, 표현, 문법\n\n'+
-    'Respond ONLY in this exact JSON format, no other text:\n'+
-    '[{"en":"word","ko":"뜻","cat":"분류"},{"en":"phrase","ko":"뜻","cat":"분류"}]';
+  var prompt='You are an English vocabulary extractor for Korean learners studying BBC/VOA English podcasts.\n\n'+
+    'Source: '+feedName+'\nEpisode title: '+title+'\n'+
+    (desc?'Episode description/content:\n'+desc+'\n\n':'(No description available — analyze based on the title and typical content of this show)\n\n')+
+    'Based on this English learning content, extract 3-6 useful items that Korean learners should study. Include:\n'+
+    '- Important vocabulary words\n- Idioms or phrasal verbs\n- Useful expressions or collocations\n- Grammar patterns if notable\n\n'+
+    'For each item provide:\n- "en": the English word/phrase\n- "ko": Korean meaning with brief explanation\n- "cat": exactly one of: 단어, 관용구, 표현, 문법\n\n'+
+    'Respond with ONLY a JSON array, no markdown, no explanation:\n'+
+    '[{"en":"example","ko":"예시 - 설명","cat":"단어"}]';
 
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:prompt}]})
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':CLAUDE_KEY,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      messages:[{role:'user',content:prompt}]
+    })
   })
-  .then(function(r){if(!r.ok)throw new Error('API '+r.status);return r.json();})
+  .then(function(r){
+    if(!r.ok){
+      return r.json().then(function(body){
+        var msg=(body&&body.error&&body.error.message)||('HTTP '+r.status);
+        throw new Error(msg);
+      }).catch(function(parseErr){
+        if(parseErr.message&&parseErr.message!=='HTTP '+r.status) throw parseErr;
+        throw new Error('API 응답 오류 ('+r.status+')');
+      });
+    }
+    return r.json();
+  })
   .then(function(data){
     var text='';
     if(data.content)data.content.forEach(function(c){if(c.type==='text')text+=c.text;});
-    // Parse JSON from response
     var match=text.match(/\[[\s\S]*\]/);
-    if(!match)throw new Error('No JSON in response');
+    if(!match)throw new Error('AI 응답에서 JSON을 찾을 수 없어요');
     var items=JSON.parse(match[0]);
-    if(!Array.isArray(items)||items.length===0)throw new Error('Empty result');
+    if(!Array.isArray(items)||items.length===0)throw new Error('추출된 항목이 없어요');
     var added=0;
     items.forEach(function(item){
       if(!item.en||!item.ko)return;
       var cat=VCATS.indexOf(item.cat)>=0?item.cat:'단어';
-      // Check duplicate
       var dup=vocabData.some(function(v){return v.en.toLowerCase()===item.en.toLowerCase();});
       if(!dup){
         vocabData.unshift({id:'v'+Date.now()+Math.random().toString(36).substr(2,4),en:item.en,ko:item.ko,cat:cat,date:TODAY,source:feedName,auto:true});
@@ -616,32 +661,34 @@ function analyzeEp(url){
       }
     });
     if(added>0){svV();showToast('📝 단어 '+added+'개 자동 추가됨!');}
+    else{showToast('중복 없이 이미 등록된 단어들이에요','info');}
     analyzedEps[url]=true;lsS('analyzed_eps',analyzedEps);
-    // Replace loading badge with done badge
-    updateAIBadges(url,'done');
+    delete analyzingEps[url];
+    renderFR(lastFR);
   })
   .catch(function(err){
     console.error('AI analysis error:',err);
-    updateAIBadges(url,'error');
-    if(err.message&&err.message.indexOf('API')>=0)showToast('AI 분석 실패: API 오류','err');
+    delete analyzingEps[url];
+    renderFR(lastFR);
+    showToast('AI 분석 실패: '+err.message,'err');
   });
 }
 
-function updateAIBadges(url,status){
-  var feedItems=document.querySelectorAll('.feed-item');
-  feedItems.forEach(function(el){
-    if(el.getAttribute('onclick')&&el.getAttribute('onclick').indexOf(url.replace(/'/g,'%27'))>=0){
-      var loading=el.querySelector('.ai-loading');if(loading)loading.remove();
-      if(status==='done'){
-        var meta=el.querySelector('.fi-meta');
-        if(meta&&!meta.querySelector('.ai-badge'))
-          meta.insertAdjacentHTML('beforeend','<span class="ai-badge">AI ✓</span>');
-      }
-    }
+function loadFeeds(fr){
+  var w=document.getElementById('feeds-wrap');if(!w)return;
+  if(fr)FEEDS.forEach(function(f){try{localStorage.removeItem('feed_'+f.id);}catch(e){}});
+  // Show fresh cache first, then stale cache, then loading
+  var ca=FEEDS.map(function(f){
+    var fresh=gFC(f.id);
+    if(fresh)return{feed:f,items:fresh};
+    var stale=gFCStale(f.id);
+    if(stale)return{feed:f,items:stale,stale:true};
+    return{feed:f,items:null};
   });
+  if(ca.some(function(r){return r.items;}))renderFR(ca);
+  else w.innerHTML='<div class="feed-loading">피드 불러오는 중...</div>';
+  Promise.all(FEEDS.map(fF)).then(function(results){renderFR(results);}).catch(function(e){console.error('Feed:',e);});
 }
-
-function loadFeeds(fr){var w=document.getElementById('feeds-wrap');if(!w)return;if(fr)FEEDS.forEach(function(f){try{localStorage.removeItem('feed_'+f.id);}catch(e){}});var ca=FEEDS.map(function(f){return{feed:f,items:gFC(f.id)};});if(ca.some(function(r){return r.items;}))renderFR(ca);else w.innerHTML='<div class="feed-loading">피드 불러오는 중...</div>';Promise.all(FEEDS.map(fF)).then(renderFR).catch(function(e){console.error('Feed:',e);});}
 window.loadFeeds=loadFeeds;
 // ── Photo upload with compression ──
 function uploadPhoto(inp){
