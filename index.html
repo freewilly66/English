@@ -88,7 +88,11 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .vc.listened{background:var(--pri-l)}
 .fi-new{font-size:9px;font-weight:700;color:#fff;background:var(--acc);padding:1px 5px;border-radius:3px}
 .fi-date{font-size:9px;font-weight:600;color:var(--tx2);background:var(--sf2);padding:1px 5px;border-radius:3px}
+.fi-old{font-size:9px;font-weight:600;color:var(--tx3);margin-left:4px}
 .fi-ok{font-size:9px;font-weight:700;color:var(--pri)}
+.fi-prev{font-size:9px;font-weight:600;color:var(--tx3)}
+.vc.prev-listened{background:var(--sf2)}
+.vc.prev-listened .vc-title{color:var(--tx3)}
 .ai-badge{font-size:8px;font-weight:700;color:#fff;background:linear-gradient(135deg,#8b5cf6,#6366f1);padding:1px 5px;border-radius:3px}
 .ai-spin{font-size:8px;font-weight:700;color:var(--warm);border:1px solid var(--warm);padding:1px 5px;border-radius:3px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
@@ -128,6 +132,21 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .ch-btn.bbc{color:var(--bbc)}
 .ch-btn.voa{color:var(--voa)}
 .ch-btn:active{transform:scale(.97);opacity:.85}
+/* Watch History */
+.hist-hdr{display:flex;justify-content:space-between;align-items:center;margin:16px 0 10px}
+.hist-ttl{font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase}
+.hist-clear{font-size:10px;color:var(--acc);font-weight:600;background:none;border:none;cursor:pointer;padding:0;-webkit-appearance:none}
+.hist-empty{text-align:center;padding:24px 16px;color:var(--tx3);font-size:12px;line-height:1.7}
+.hi{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);cursor:pointer;align-items:center}
+.hi:last-child{border-bottom:none}
+.hi:active{opacity:.7}
+.hi-thumb{width:80px;height:45px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--sf2)}
+.hi-info{flex:1;min-width:0}
+.hi-title{font-size:12px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--tx)}
+.hi-meta{display:flex;gap:5px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.hi-date{font-size:9px;color:var(--tx3)}
+.hi-badge{font-size:9px;font-weight:700;color:#fff;padding:1px 6px;border-radius:3px}
+.hi-badge.bbc{background:var(--bbc)}.hi-badge.voa{background:var(--voa)}
 /* Vocab */
 .vadd{width:100%;padding:11px;background:var(--sf);border:2px dashed var(--bd);border-radius:var(--rad-s);color:var(--tx3);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px;-webkit-appearance:none}
 .vadd:active{background:var(--sf2)}
@@ -186,6 +205,25 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .mcts button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
 .msv{width:100%;padding:12px;background:var(--pri);color:#fff;border:none;border-radius:var(--rad);font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;-webkit-appearance:none}
 .msv:active{opacity:.7}
+/* Return prompt bottom sheet */
+.rp-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:150;display:flex;align-items:flex-end;justify-content:center;animation:fdin .25s ease}
+@keyframes fdin{from{opacity:0}to{opacity:1}}
+.rp-sheet{background:var(--bg);border-radius:18px 18px 0 0;width:100%;max-width:500px;padding:18px 18px calc(env(safe-area-inset-bottom)+18px);animation:sup .3s cubic-bezier(.32,1,.56,1)}
+@keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.rp-handle{width:36px;height:4px;background:var(--bd);border-radius:2px;margin:0 auto 14px}
+.rp-title{font-size:14px;font-weight:900;margin-bottom:4px}
+.rp-sub{font-size:11px;color:var(--tx3);margin-bottom:14px}
+.rp-item{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1.5px solid var(--bd);background:var(--sf);transition:border-color .15s}
+.rp-item:active{background:var(--sf2)}
+.rp-item.sel{border-color:var(--pri);background:var(--pri-l)}
+.rp-thumb{width:72px;height:40px;border-radius:5px;object-fit:cover;flex-shrink:0;background:var(--sf2)}
+.rp-info{flex:1;min-width:0}
+.rp-ititle{font-size:11px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rp-imeta{font-size:9px;color:var(--tx3);margin-top:2px}
+.rp-actions{display:flex;gap:8px;margin-top:12px}
+.rp-btn{flex:1;padding:11px;border-radius:10px;font-size:12px;font-weight:700;border:none;cursor:pointer;-webkit-appearance:none}
+.rp-btn.pri{background:var(--pri);color:#fff}
+.rp-btn.sec{background:var(--sf2);color:var(--tx2)}
 /* Toast */
 .toast{position:fixed;top:calc(env(safe-area-inset-top) + 56px);left:50%;transform:translateX(-50%);background:var(--sf);border:1px solid var(--pri);border-radius:18px;padding:8px 18px;font-size:12px;font-weight:700;color:var(--pri);box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:300;white-space:nowrap;animation:ti .3s ease,to .3s ease 2.7s forwards}
 .toast.err{border-color:var(--acc);color:var(--acc)}.toast.inf{border-color:var(--warm);color:var(--warm)}
@@ -307,6 +345,8 @@ var cutoff=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
 Object.keys(lR).forEach(function(d){if(d<cutoff)delete lR[d];});
 var lT=new Set(lR[TD]||[]);
 var allEps=new Set(),lastFR=[];
+// 시청 기록: {url, title, thumb, ch, chName, watchedAt, videoDate}
+var watchHist=lG('eh_history',[]);
 var VCATS=['단어','관용구','표현','문법','기타'];
 var vocD=lG('eh_vocab',[]),vFil='all',fcI=0,fcSh=false,fcL=[];
 var azd=lG('eh_analyzed',{}),azing={};
@@ -322,12 +362,19 @@ function onReturn(){
   var ts=0;try{var s=localStorage.getItem('eh_leave');if(s)ts=parseInt(s);localStorage.removeItem('eh_leave');}catch(e){}
   if(!ts&&leaveTs)ts=leaveTs;if(!ts)return;
   var secs=Math.round((Date.now()-ts)/1000);
-  if(secs>3&&secs<7200){
+  // 채널 페이지로 나간 경우 → 복귀 시 "뭘 봤나요?" 프롬프트
+  var ctx=null;try{var cs=localStorage.getItem('eh_leave_ctx');if(cs){ctx=JSON.parse(cs);localStorage.removeItem('eh_leave_ctx');}}catch(e){}
+  if(secs>5&&secs<7200){
     if(!watchLog[TD])watchLog[TD]=0;
     watchLog[TD]+=secs;lS('eh_watch',watchLog);
-    var m=Math.floor(secs/60),s2=secs%60;
-    showToast('⏱ 시청 '+m+'분 '+s2+'초 기록됨');
     render();
+    // 채널 페이지로 나간 경우만 프롬프트 (이미 아는 특정 영상은 onEpTap이 처리)
+    if(ctx&&ctx.type==='ch'){
+      setTimeout(function(){showReturnPrompt(ctx.ch,secs);},400);
+    } else {
+      var m=Math.floor(secs/60),s2=secs%60;
+      showToast('⏱ 시청 '+m+'분 '+s2+'초 기록됨');
+    }
   }
   leaveTs=0;
 }
@@ -337,13 +384,87 @@ window.addEventListener('pageshow',function(e){if(e.persisted)onReturn();});
 window.addEventListener('focus',onReturn);
 window.addEventListener('DOMContentLoaded',function(){if(localStorage.getItem('eh_leave'))onReturn();});
 
-// ── Helpers ──
+// ── Return Prompt (유튜브 채널에서 돌아왔을 때) ──
+var rpSel=null;
+function showReturnPrompt(chCls,secs){
+  if(document.getElementById('rp-overlay'))return;
+  // 해당 채널의 미시청 영상 최대 5개
+  var chResult=lastFR.find(function(r){return r.ch&&r.ch.cls===chCls;});
+  var items=chResult?chResult.items||[]:[];
+  var candidates=items.filter(function(v){return!wasEverWatched(v.url);}).slice(0,5);
+  // 미시청이 없으면 최신 5개
+  if(!candidates.length)candidates=items.slice(0,5);
+  if(!candidates.length){
+    // 피드 없으면 그냥 시간만 알림
+    var m2=Math.floor(secs/60),s3=secs%60;
+    showToast('⏱ 시청 '+m2+'분 '+s3+'초 기록됨');
+    return;
+  }
+  rpSel=null;
+  var chLabel=chCls.toUpperCase();
+  var m=Math.floor(secs/60),s2=secs%60;
+  var el=document.createElement('div');
+  el.id='rp-overlay';el.className='rp-overlay';
+  el.innerHTML='<div class="rp-sheet">'+
+    '<div class="rp-handle"></div>'+
+    '<div class="rp-title">어떤 영상을 봤나요?</div>'+
+    '<div class="rp-sub">'+chLabel+' • '+m+'분 '+s2+'초 시청 — 기록할 영상을 선택하세요</div>'+
+    candidates.map(function(v,i){
+      return'<div class="rp-item" id="rpi-'+i+'" onclick="rpToggle('+i+',this)">'+
+        '<img class="rp-thumb" src="'+v.thumb+'" loading="lazy" alt="">'+
+        '<div class="rp-info">'+
+          '<div class="rp-ititle">'+esc(v.title)+'</div>'+
+          '<div class="rp-imeta">'+(v.date?v.date.slice(5).replace('-','/'):'')+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+
+    '<div class="rp-actions">'+
+      '<button class="rp-btn sec" onclick="rpClose()">건너뛰기</button>'+
+      '<button class="rp-btn pri" onclick="rpSave(\''+chCls+'\')">기록 저장</button>'+
+    '</div>'+
+  '</div>';
+  // 선택 데이터 저장용
+  el._candidates=candidates;
+  document.body.appendChild(el);
+  el.addEventListener('click',function(e){if(e.target===el)rpClose();});
+}
+window.showReturnPrompt=showReturnPrompt;
+
+function rpToggle(i,el){
+  document.querySelectorAll('.rp-item').forEach(function(b){b.classList.remove('sel');});
+  if(rpSel===i){rpSel=null;}else{el.classList.add('sel');rpSel=i;}
+}
+window.rpToggle=rpToggle;
+
+function rpClose(){var o=document.getElementById('rp-overlay');if(o)o.remove();rpSel=null;}
+window.rpClose=rpClose;
+
+function rpSave(chCls){
+  var o=document.getElementById('rp-overlay');
+  if(!o||rpSel===null){rpClose();return;}
+  var v=o._candidates[rpSel];if(!v){rpClose();return;}
+  // onEpTap처럼 저장 (URL 열지 않고 기록만)
+  var chResult=lastFR.find(function(r){return r.ch&&r.ch.cls===chCls;});
+  var chName=chResult?chResult.ch.name:chCls.toUpperCase();
+  var entry={url:v.url,title:v.title,thumb:v.thumb,ch:chCls,chName:chName,watchedAt:TD,videoDate:v.date||''};
+  watchHist=watchHist.filter(function(h){return h.url!==v.url;});
+  watchHist.unshift(entry);
+  if(watchHist.length>500)watchHist=watchHist.slice(0,500);
+  lS('eh_history',watchHist);
+  if(!lT.has(v.url)){lT.add(v.url);svL();}
+  rpClose();
+  showToast('📺 시청 기록 저장됨');
+  renderFR(lastFR);
+}
+window.rpSave=rpSave;
 function sv(){lS('eh_state',S);}
 function svL(){lR[TD]=Array.from(lT);lS('eh_listened',lR);}
 function svV(){lS('eh_vocab',vocD);}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function openUrl(u){
+function openUrl(u,ctx){
   onLeave();
+  // ctx: {type:'ep',url,title,thumb,ch,chName,videoDate} 또는 {type:'ch',ch}
+  if(ctx)try{localStorage.setItem('eh_leave_ctx',JSON.stringify(ctx));}catch(e){}
   if(standalone&&iOS){var a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);},100);}
   else window.open(u,'_blank');
 }
@@ -381,8 +502,8 @@ function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set()
 function rstStart(){var fd=fDay();if(!fd){alert('기록 없음');return;}if(!confirm('시작일을 오늘로?')){return;}Object.keys(S.history).forEach(function(k){if(k<TD)delete S.history[k];});sv();render();rCal();rSet();}window.rstStart=rstStart;
 
 // ── Export/Import ──
-function expData(){var ph=null;try{ph=localStorage.getItem('eh_photo');}catch(e){}var d=JSON.stringify({state:S,listened:lR,vocab:vocD,analyzed:azd,watch:watchLog,photo:ph,apiKey:AK,v:6},null,2);var b=new Blob([d],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='eng-tracker-'+TD+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},100);}window.expData=expData;
-function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
+function expData(){var ph=null;try{ph=localStorage.getItem('eh_photo');}catch(e){}var d=JSON.stringify({state:S,listened:lR,vocab:vocD,analyzed:azd,watch:watchLog,history:watchHist,photo:ph,apiKey:AK,v:7},null,2);var b=new Blob([d],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='eng-tracker-'+TD+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},100);}window.expData=expData;
+function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};watchHist=d.history||[];if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);lS('eh_history',watchHist);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
 
 // ── API Key ──
 function toggleAK(){var w=document.getElementById('ak-w');w.style.display=w.style.display==='none'?'block':'none';document.getElementById('ak-inp').value=AK;}window.toggleAK=toggleAK;
@@ -408,7 +529,7 @@ function parseAtom(xml){
     var doc=new DOMParser().parseFromString(xml,'text/xml');
     var entries=doc.querySelectorAll('entry');
     var r=[];
-    for(var i=0;i<Math.min(entries.length,5);i++){
+    for(var i=0;i<Math.min(entries.length,100);i++){
       var en=entries[i];
       var vid=en.getElementsByTagName('yt:videoId')[0];
       var videoId=vid?vid.textContent:'';
@@ -447,9 +568,17 @@ function fetchCh(ch){
 }
 
 // ── Episode Tap ──
-function onEpTap(url){
+function onEpTap(url,title,thumb,chCls,chName,videoDate){
   openUrl(url);
-  if(lT.has(url))return;
+  // 메타데이터 저장 (중복 제거 후 앞에 추가, 최대 50개)
+  if(!lT.has(url)){
+    var entry={url:url,title:title||'',thumb:thumb||'',ch:chCls||'',chName:chName||'',watchedAt:TD,videoDate:videoDate||''};
+    watchHist=watchHist.filter(function(h){return h.url!==url;});
+    watchHist.unshift(entry);
+    if(watchHist.length>500)watchHist=watchHist.slice(0,500);
+    lS('eh_history',watchHist);
+  }
+  if(lT.has(url)){renderFR(lastFR);return;}
   lT.add(url);svL();renderFR(lastFR);
   if(!S.history[TD]&&allEps.size>0&&Array.from(allEps).every(function(u){return lT.has(u);})){
     S.history[TD]=true;sv();
@@ -462,21 +591,51 @@ function onEpTap(url){
 window.onEpTap=onEpTap;
 
 // ── Feed Render ──
+function wasEverWatched(url){
+  return Object.values(lR).some(function(arr){return arr.indexOf(url)>=0;});
+}
 function renderFR(results){
   lastFR=results;allEps=new Set();
   var w=document.getElementById('fw');if(!w)return;
   w.innerHTML=results.map(function(r){
     var ch=r.ch,items=r.items,stale=r.stale;
     if(!items||!items.length)return'<div class="vc"><div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div><div style="padding:10px 12px;font-size:11px;color:var(--tx3)">피드 로드 실패</div></div>';
-    // Always show the latest video per channel so allEps stays stable
-    var item=items[0];
+    // 첫 번째 미시청 영상을 찾아 표시, 없으면 가장 최신 영상
+    var item=null;
+    for(var i=0;i<items.length;i++){if(!wasEverWatched(items[i].url)){item=items[i];break;}}
+    if(!item)item=items[0];
     allEps.add(item.url);
-    var ls=lT.has(item.url);
+    var todayWatched=lT.has(item.url);
+    var everWatched=wasEverWatched(item.url);
     var isNew=isTD(item.date);
-    var dh=isNew?'<span class="fi-new">NEW</span>':item.date?'<span class="fi-date">'+(function(){var d=new Date(item.date+'T12:00:00');return(d.getMonth()+1)+'/'+ d.getDate();}())+'</span>':'';
+    var daysDiff=item.date?Math.round((new Date(TD+'T12:00:00')-new Date(item.date+'T12:00:00'))/864e5):0;
+    var dh='';
+    if(isNew) dh='<span class="fi-new">NEW</span>';
+    else if(item.date){
+      var d=new Date(item.date+'T12:00:00');
+      dh='<span class="fi-date">'+(d.getMonth()+1)+'/'+d.getDate()+'</span>';
+      if(daysDiff>=1) dh+='<span class="fi-old">'+daysDiff+'일 전</span>';
+    }
     var aib='';if(azd[item.url])aib='<span class="ai-badge">AI✓</span>';else if(azing[item.url])aib='<span class="ai-spin">AI…</span>';
-    var stN=stale?'<div style="font-size:9px;color:var(--warm);padding:2px 12px 6px">⚠ 캐시된 데이터</div>':'';
-    return'<div class="vc'+(ls?' listened':'')+'"><div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div><div class="vc-body" onclick="onEpTap(\''+item.url.replace(/'/g,'%27')+'\')"><img class="vc-thumb" src="'+item.thumb+'" loading="lazy" alt=""><div class="vc-info"><div class="vc-title">'+esc(item.title)+'</div><div class="vc-meta">'+dh+(ls?' <span class="fi-ok">✓ 시청</span>':'')+aib+'</div></div></div>'+stN+'</div>';
+    var staleNote=stale?'<div style="font-size:9px;color:var(--warm);padding:2px 12px 6px">⚠ 캐시된 데이터</div>':'';
+    var watchedMark='';
+    if(todayWatched) watchedMark='<span class="fi-ok">✓ 오늘 시청</span>';
+    else if(everWatched) watchedMark='<span class="fi-prev">↩ 이미 시청</span>';
+    // onclick에 메타데이터 전달
+    var safeUrl=item.url.replace(/'/g,'%27');
+    var safeTitle=esc(item.title).replace(/'/g,'%27');
+    var safeThumb=item.thumb.replace(/'/g,'%27');
+    var tapCall="onEpTap('"+safeUrl+"','"+safeTitle+"','"+safeThumb+"','"+ch.cls+"','"+ch.name+"','"+item.date+"')";
+    return'<div class="vc'+(todayWatched?' listened':everWatched?' prev-listened':'')+'">'+
+      '<div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div>'+
+      '<div class="vc-body" onclick="'+tapCall+'">'+
+        '<img class="vc-thumb" src="'+item.thumb+'" loading="lazy" alt="">'+
+        '<div class="vc-info">'+
+          '<div class="vc-title">'+esc(item.title)+'</div>'+
+          '<div class="vc-meta">'+dh+watchedMark+aib+'</div>'+
+        '</div>'+
+      '</div>'+staleNote+
+    '</div>';
   }).join('');
   rAA();
 }
@@ -488,9 +647,23 @@ function rAA(){
     aw.innerHTML='<div class="bdone"><div style="font-size:24px;margin-bottom:4px">🎉</div><div style="font-size:14px;font-weight:900;color:var(--pri)">오늘 완료!</div>'+(mins>0?'<div class="mins">오늘 학습 '+mins+'분</div>':'')+'</div>';
     return;
   }
-  var tot=allEps.size,op=Array.from(allEps).filter(function(u){return lT.has(u);}).length,pct=tot>0?Math.round(op/tot*100):0;
+  var tot=allEps.size;
+  var todayOp=Array.from(allEps).filter(function(u){return lT.has(u);}).length;
+  var everOp=Array.from(allEps).filter(function(u){return wasEverWatched(u);}).length;
+  var pct=tot>0?Math.round(todayOp/tot*100):0;
   var h='';
-  if(tot>0)h+='<div class="pbar"><div class="pbar-top"><span class="pbar-lbl">콘텐츠 확인</span><span class="pbar-cnt">'+op+'/'+tot+'</span></div><div class="pbar-bg"><div class="pbar-fill" style="width:'+pct+'%"></div></div><div class="pbar-hint">👆 모두 열면 자동 완료</div></div>';
+  if(tot>0){
+    var allPrev=(todayOp===0&&everOp>=tot);
+    if(allPrev){
+      h+='<div class="pbar" style="opacity:.75">'+
+        '<div class="pbar-top"><span class="pbar-lbl" style="color:var(--tx2)">새 영상이 없어요</span><span style="font-size:10px;color:var(--tx3)">이전에 시청한 영상</span></div>'+
+        '<div class="pbar-bg"><div class="pbar-fill" style="width:100%;background:var(--tx3);opacity:.4"></div></div>'+
+        '<div class="pbar-hint">오늘도 다시 들었다면 아래 버튼으로 완료하세요 👇</div>'+
+      '</div>';
+    } else {
+      h+='<div class="pbar"><div class="pbar-top"><span class="pbar-lbl">콘텐츠 확인</span><span class="pbar-cnt">'+todayOp+'/'+tot+'</span></div><div class="pbar-bg"><div class="pbar-fill" style="width:'+pct+'%"></div></div><div class="pbar-hint">👆 모두 열면 자동 완료</div></div>';
+    }
+  }
   h+='<button class="btn-man" onclick="markDone()">오늘 듣기 완료 ✓</button>';
   aw.innerHTML=h;
 }
@@ -546,6 +719,8 @@ var CT={
     name:'VOA Learning English',
     desc:'미국의 소리(Voice of America) 공식 영어 학습 채널. 느린 속도의 뉴스 영어와 실용 표현으로 청취력을 키워요.'}
 };
+function clearWatchHist(){if(!confirm('시청 기록을 모두 삭제할까요?'))return;watchHist=[];lS('eh_history',[]);rContent();}
+window.clearWatchHist=clearWatchHist;
 function rContent(){
   var isV=S.tab==='vocab';
   document.getElementById('vt-bbc').className=S.tab==='bbc'?'on':'';
@@ -555,12 +730,38 @@ function rContent(){
   document.getElementById('varea').style.display=isV?'block':'none';
   if(isV){rVocab();return;}
   var t=CT[S.tab];
+  // 현재 채널 시청 기록 필터
+  var chHist=watchHist.filter(function(h){return h.ch===S.tab;});
+  var histHtml='<div class="hist-hdr"><span class="hist-ttl">시청 기록</span>'+(chHist.length>0?'<button class="hist-clear" onclick="clearWatchHist()">전체 삭제</button>':'')+'</div>';
+  if(chHist.length>0){
+    histHtml+='<div>'+chHist.map(function(h){
+      var safeUrl=h.url.replace(/'/g,'%27');
+      var safeTitle=(h.title||'').replace(/'/g,'%27');
+      var safeThumb=(h.thumb||'').replace(/'/g,'%27');
+      var tapCall="onEpTap('"+safeUrl+"','"+safeTitle+"','"+safeThumb+"','"+h.ch+"','"+h.chName+"','"+h.videoDate+"')";
+      var dLabel=h.watchedAt?'시청 '+h.watchedAt.slice(5).replace('-','/'):'';
+      var vLabel=h.videoDate&&h.videoDate!==h.watchedAt?(function(){var d=new Date(h.videoDate+'T12:00:00');return'업로드 '+(d.getMonth()+1)+'/'+d.getDate();}()):'';
+      return'<div class="hi" onclick="'+tapCall+'">'+
+        '<img class="hi-thumb" src="'+(h.thumb||'')+'" loading="lazy" alt="">'+
+        '<div class="hi-info">'+
+          '<div class="hi-title">'+(h.title?esc(h.title):'제목 없음')+'</div>'+
+          '<div class="hi-meta">'+
+            '<span class="hi-badge '+h.ch+'">'+h.ch.toUpperCase()+'</span>'+
+            (dLabel?'<span class="hi-date">'+dLabel+'</span>':'')+
+            (vLabel?'<span class="hi-date">'+vLabel+'</span>':'')+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+'</div>';
+  } else {
+    histHtml+='<div class="hist-empty">홈탭에서 영상을 탭하면<br>여기에 기록이 쌓입니다 📺</div>';
+  }
   document.getElementById('clist').innerHTML=
     '<div class="ch-card '+t.cls+'"><div class="ch-inner">'+
       '<div class="ch-brand"><span class="ch-logo">'+t.label+'</span><span class="ch-name">'+t.name+'</span></div>'+
       '<div class="ch-desc">'+t.desc+'</div>'+
-      '<button class="ch-btn '+t.cls+'" onclick="openUrl(\''+t.url+'\')">유튜브에서 보기 →</button>'+
-    '</div></div>';
+      '<button class="ch-btn '+t.cls+'" onclick="openUrl(\''+t.url+'\',{type:\'ch\',ch:\''+t.cls+'\'})">유튜브에서 보기 →</button>'+
+    '</div></div>'+histHtml;
 }
 
 // ── Vocab ──
