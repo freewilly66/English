@@ -352,6 +352,9 @@ var vocD=lG('eh_vocab',[]),vFil='all',fcI=0,fcSh=false,fcL=[];
 var azd=lG('eh_analyzed',{}),azing={};
 var AK='';try{AK=localStorage.getItem('eh_ak')||'';}catch(e){}
 var nagT=null,cY,cM;
+// 오늘의 채널별 선택 영상 (날짜 바뀌면 자동 초기화)
+var todayPick=lG('eh_today_pick',{});
+if(todayPick.date!==TD){todayPick={date:TD};lS('eh_today_pick',todayPick);}
 (function(){var d=new Date();cY=d.getFullYear();cM=d.getMonth();})();
 
 // ── Time tracking ──
@@ -498,12 +501,12 @@ function setDMin(v){var n=parseInt(v)||30;S.dMin=Math.max(5,Math.min(120,n));sv(
 function setRTime(v){if(!v)return;var p=v.split(':');S.rH=parseInt(p[0])||9;S.rM=parseInt(p[1])||0;sv();}window.setRTime=setRTime;
 function goPage(p){document.querySelectorAll('.pg').forEach(function(e){e.classList.remove('on');});document.getElementById('pg-'+p).classList.add('on');document.querySelectorAll('.nbtn').forEach(function(e){e.classList.remove('on');});document.getElementById('n-'+p).classList.add('on');document.getElementById('main-scr').scrollTop=0;if(p==='set'){rSet();rCal();}if(p==='content')rContent();}
 window.goPage=goPage;
-function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};watchLog={};lS('eh_analyzed',{});lS('eh_watch',{});sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
+function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};watchLog={};todayPick={date:TD};lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_today_pick',todayPick);sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
 function rstStart(){var fd=fDay();if(!fd){alert('기록 없음');return;}if(!confirm('시작일을 오늘로?')){return;}Object.keys(S.history).forEach(function(k){if(k<TD)delete S.history[k];});sv();render();rCal();rSet();}window.rstStart=rstStart;
 
 // ── Export/Import ──
 function expData(){var ph=null;try{ph=localStorage.getItem('eh_photo');}catch(e){}var d=JSON.stringify({state:S,listened:lR,vocab:vocD,analyzed:azd,watch:watchLog,history:watchHist,photo:ph,apiKey:AK,v:7},null,2);var b=new Blob([d],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='eng-tracker-'+TD+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},100);}window.expData=expData;
-function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};watchHist=d.history||[];if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);lS('eh_history',watchHist);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
+function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};watchHist=d.history||[];if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}todayPick={date:TD};lS('eh_today_pick',todayPick);sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);lS('eh_history',watchHist);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
 
 // ── API Key ──
 function toggleAK(){var w=document.getElementById('ak-w');w.style.display=w.style.display==='none'?'block':'none';document.getElementById('ak-inp').value=AK;}window.toggleAK=toggleAK;
@@ -600,10 +603,19 @@ function renderFR(results){
   w.innerHTML=results.map(function(r){
     var ch=r.ch,items=r.items,stale=r.stale;
     if(!items||!items.length)return'<div class="vc"><div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div><div style="padding:10px 12px;font-size:11px;color:var(--tx3)">피드 로드 실패</div></div>';
-    // 첫 번째 미시청 영상을 찾아 표시, 없으면 가장 최신 영상
+    // 오늘의 선택 영상 고정: 같은 날은 항상 같은 영상을 보여줌
     var item=null;
-    for(var i=0;i<items.length;i++){if(!wasEverWatched(items[i].url)){item=items[i];break;}}
-    if(!item)item=items[0];
+    var pickKey='pick_'+ch.id;
+    if(todayPick[pickKey]){
+      // 오늘 이미 선택된 영상이 있으면 그것을 우선 사용
+      item=items.find(function(v){return v.videoId===todayPick[pickKey];})||null;
+    }
+    if(!item){
+      // 오늘 선택된 영상이 없으면 첫 미시청 영상 선택 후 저장
+      for(var i=0;i<items.length;i++){if(!wasEverWatched(items[i].url)){item=items[i];break;}}
+      if(!item)item=items[0];
+      if(item){todayPick[pickKey]=item.videoId;lS('eh_today_pick',todayPick);}
+    }
     allEps.add(item.url);
     var todayWatched=lT.has(item.url);
     var everWatched=wasEverWatched(item.url);
