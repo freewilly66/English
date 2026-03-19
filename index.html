@@ -237,7 +237,6 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .nbtn{flex:1;padding:12px 0 14px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx3);font-size:11px;font-weight:600;-webkit-appearance:none}
 .nbtn.on{color:var(--pri)}.ni{font-size:24px;line-height:1}
 .pg{display:none}.pg.on{display:block}
-.ihint{background:var(--sf2);border-radius:var(--rad-s);padding:12px;font-size:12px;color:var(--tx2);line-height:1.6}
 button,a{cursor:pointer}a{text-decoration:none}
 </style>
 </head>
@@ -353,6 +352,8 @@ var watchHist=lG('eh_history',[]);
 var VCATS=['단어','관용구','표현','문법','기타'];
 var vocD=lG('eh_vocab',[]);
 var vFil=lG('eh_vfil','all');  // 마지막 필터 상태 저장
+// 저장된 필터가 유효하지 않으면(단어 없는 카테고리 등) 'all'로 복원
+if(vFil!=='all'&&VCATS.indexOf(vFil)<0){vFil='all';}
 var fcI=0,fcSh=false,fcL=[],isFC=false; // isFC: 플래시카드 모드 중 여부
 var azd=lG('eh_analyzed',{}),azing={};
 var AK='';try{AK=localStorage.getItem('eh_ak')||'';}catch(e){}
@@ -603,7 +604,7 @@ function fetchCh(ch,autoRetry){
     if(idx>=proxies.length){
       // 스테일 캐시 있으면 바로 사용
       var st=gStale(ch.id);
-      if(st){console.warn('[Feed] '+ch.name+' 캐시 사용');return Promise.resolve({ch:ch,items:st,stale:true});}
+      if(st){console.warn('[Feed] '+ch.name+' 캐시 사용');delete feedLoadState[ch.id];return Promise.resolve({ch:ch,items:st,stale:true});}
       // 자동 재시도
       if(retryRound<AUTO_RETRY_MAX){
         var nextRound=retryRound+1;
@@ -651,14 +652,12 @@ function fetchCh(ch,autoRetry){
 // ── Episode Tap ──
 function onEpTap(url,title,thumb,chCls,chName,videoDate){
   openUrl(url);
-  // 메타데이터 저장 (중복 제거 후 앞에 추가, 최대 500개)
-  if(!lT.has(url)){
-    var entry={url:url,title:title||'',thumb:thumb||'',ch:chCls||'',chName:chName||'',watchedAt:TD,videoDate:videoDate||''};
-    watchHist=watchHist.filter(function(h){return h.url!==url;});
-    watchHist.unshift(entry);
-    if(watchHist.length>500)watchHist=watchHist.slice(0,500);
-    lS('eh_history',watchHist);
-  }
+  // watchHist: 항상 최신 기록으로 갱신 (재시청 포함)
+  var entry={url:url,title:title||'',thumb:thumb||'',ch:chCls||'',chName:chName||'',watchedAt:TD,videoDate:videoDate||''};
+  watchHist=watchHist.filter(function(h){return h.url!==url;});
+  watchHist.unshift(entry);
+  if(watchHist.length>500)watchHist=watchHist.slice(0,500);
+  lS('eh_history',watchHist);
   if(lT.has(url)){renderFR(lastFR);return;}
   lT.add(url);svL();renderFR(lastFR);
   if(!S.history[TD]&&allEps.size>0&&Array.from(allEps).every(function(u){return lT.has(u);})){
@@ -945,10 +944,10 @@ function rVocab(){
   var cnts={};VCATS.forEach(function(c){cnts[c]=0;});vocD.forEach(function(v){if(cnts[v.cat]!==undefined)cnts[v.cat]++;});
   var fl=vFil==='all'?vocD:vocD.filter(function(v){return v.cat===vFil;});
   var showCard=fl.length>=2;
-  fE.innerHTML='<button class="vfb'+(vFil==='all'?' on':'')+'" onclick="setVF('all')">전체('+vocD.length+')</button>'+VCATS.map(function(c){return cnts[c]>0?'<button class="vfb'+(vFil===c?' on':'')+'" onclick="setVF(''+c+'')">'+c+'('+cnts[c]+')</button>':'';}).join('')+(showCard?'<button class="vfb" onclick="startFC()" style="background:var(--warm);color:#fff;border-color:var(--warm)">🃏 카드</button>':'');
+  fE.innerHTML='<button class="vfb'+(vFil==='all'?' on':'')+'" onclick="setVF(\'all\')">전체('+vocD.length+')</button>'+VCATS.map(function(c){return cnts[c]>0?'<button class="vfb'+(vFil===c?' on':'')+'" onclick="setVF(\''+c+'\')">'+c+'('+cnts[c]+')</button>':'';}).join('')+(showCard?'<button class="vfb" onclick="startFC()" style="background:var(--warm);color:#fff;border-color:var(--warm)">🃏 카드</button>':'');
   if(!fl.length){lE.innerHTML='<div class="vempty">단어를 추가해보세요! 📚</div>';return;}
   var grp={};fl.forEach(function(v){if(!grp[v.cat])grp[v.cat]=[];grp[v.cat].push(v);});
-  var h='';(vFil==='all'?VCATS:[vFil]).forEach(function(cat){var its=grp[cat];if(!its)return;h+='<div class="vgh"><span>'+cat+'</span><span class="cnt">'+its.length+'</span></div>';its.forEach(function(v){var d=new Date(v.date+'T12:00:00');h+='<div class="vcd"><div class="va"><button onclick="openVM(''+v.id+'')" title="수정">✏️</button><button onclick="delV(''+v.id+'')" title="삭제">🗑️</button></div><div class="ven">'+esc(v.en)+'</div><div class="vko">'+esc(v.ko)+'</div><div class="vdt">'+(d.getMonth()+1)+'/'+d.getDate()+(v.src?' · '+esc(v.src):'')+(v.auto?' <span class="ai-badge">AI</span>':'')+'</div></div>';});});
+  var h='';(vFil==='all'?VCATS:[vFil]).forEach(function(cat){var its=grp[cat];if(!its)return;h+='<div class="vgh"><span>'+cat+'</span><span class="cnt">'+its.length+'</span></div>';its.forEach(function(v){var d=new Date(v.date+'T12:00:00');h+='<div class="vcd"><div class="va"><button onclick="openVM(\''+v.id+'\')" title="수정">✏️</button><button onclick="delV(\''+v.id+'\')" title="삭제">🗑️</button></div><div class="ven">'+esc(v.en)+'</div><div class="vko">'+esc(v.ko)+'</div><div class="vdt">'+(d.getMonth()+1)+'/'+d.getDate()+(v.src?' · '+esc(v.src):'')+(v.auto?' <span class="ai-badge">AI</span>':'')+'</div></div>';});});
   lE.innerHTML=h;
 }
 function startFC(){var fl=vFil==='all'?vocD.slice():vocD.filter(function(v){return v.cat===vFil;});if(fl.length<2){showToast('카드 모드는 단어가 2개 이상 필요해요 📚');return;}for(var i=fl.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=fl[i];fl[i]=fl[j];fl[j]=t;}fcL=fl;fcI=0;fcSh=false;isFC=true;document.getElementById('vlist').style.display='none';var aE=document.querySelector('.vadd');if(aE)aE.style.display='none';document.getElementById('vfl').style.display='none';rFC();}window.startFC=startFC;

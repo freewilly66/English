@@ -1,12 +1,12 @@
 {
-  "name": "영어 듣기 트래커",
-  "short_name": "영어듣기",
+  "name": "좋은 하루",
+  "short_name": "좋은 하루",
   "description": "BBC & VOA 영어 듣기 습관 트래커",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#27ae60",
+  "background_color": "#fafbfc",
+  "theme_color": "#16a085",
   "orientation": "portrait",
   "icons": [
     {
