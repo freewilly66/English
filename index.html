@@ -70,8 +70,6 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .sc.dn{background:var(--pri-l);border-color:var(--pri-b)}
 .sc .n{font-size:26px;font-weight:900;line-height:1.1;letter-spacing:-1px}
 .sc .l{font-size:10px;color:var(--tx3);margin-top:4px;font-weight:600;letter-spacing:.04em}
-
-
 /* Video cards */
 .vc{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rad);overflow:hidden;margin-bottom:8px}
 .vc-hd{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--bd)}
@@ -96,7 +94,6 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .ai-badge{font-size:8px;font-weight:700;color:#fff;background:linear-gradient(135deg,#8b5cf6,#6366f1);padding:1px 5px;border-radius:3px}
 .ai-spin{font-size:8px;font-weight:700;color:var(--warm);border:1px solid var(--warm);padding:1px 5px;border-radius:3px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.vc-time{font-size:9px;color:var(--pri);font-weight:700}
 /* Progress bar + btn */
 .pbar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rad);padding:10px 12px;margin-bottom:6px}
 .pbar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
@@ -224,6 +221,12 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .rp-btn{flex:1;padding:11px;border-radius:10px;font-size:12px;font-weight:700;border:none;cursor:pointer;-webkit-appearance:none}
 .rp-btn.pri{background:var(--pri);color:#fff}
 .rp-btn.sec{background:var(--sf2);color:var(--tx2)}
+/* Feed loading card */
+.feed-loading-inner{padding:16px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.feed-spin{width:28px;height:28px;border:3px solid var(--bd);border-top-color:var(--pri);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.feed-loading-txt{font-size:12px;font-weight:700;color:var(--tx2)}
+.feed-loading-sub{font-size:10px;color:var(--tx3)}
 /* Toast */
 .toast{position:fixed;top:calc(env(safe-area-inset-top) + 56px);left:50%;transform:translateX(-50%);background:var(--sf);border:1px solid var(--pri);border-radius:18px;padding:8px 18px;font-size:12px;font-weight:700;color:var(--pri);box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:300;white-space:nowrap;animation:ti .3s ease,to .3s ease 2.7s forwards}
 .toast.err{border-color:var(--acc);color:var(--acc)}.toast.inf{border-color:var(--warm);color:var(--warm)}
@@ -341,7 +344,7 @@ var DF={history:{},notif:false,tab:'bbc',wGoal:7,rH:9,rM:0,dMin:30};
 var S=lG('eh_state',DF);
 ['wGoal','rH','rM','dMin'].forEach(function(k){if(S[k]===undefined)S[k]=DF[k];});
 var lR=lG('eh_listened',{});
-var cutoff=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+var cutoff=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
 Object.keys(lR).forEach(function(d){if(d<cutoff)delete lR[d];});
 var lT=new Set(lR[TD]||[]);
 var allEps=new Set(),lastFR=[];
@@ -352,6 +355,7 @@ var vocD=lG('eh_vocab',[]),vFil='all',fcI=0,fcSh=false,fcL=[];
 var azd=lG('eh_analyzed',{}),azing={};
 var AK='';try{AK=localStorage.getItem('eh_ak')||'';}catch(e){}
 var nagT=null,cY,cM;
+var aiPendingToast=null; // 복귀 시 보여줄 AI 결과 메시지
 // 오늘의 채널별 선택 영상 (날짜 바뀌면 자동 초기화)
 var todayPick=lG('eh_today_pick',{});
 if(todayPick.date!==TD){todayPick={date:TD};lS('eh_today_pick',todayPick);}
@@ -479,8 +483,6 @@ window.openUrl=openUrl;
 function showToast(m,t){var o=document.querySelector('.toast');if(o)o.remove();var e=document.createElement('div');e.className='toast'+(t?' '+t:'');e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove();},3200);}
 
 // ── Date helpers ──
-function gWeek(){var t=new Date(),dw=t.getDay(),s=new Date(t);s.setDate(t.getDate()-dw);return Array.from({length:7},function(_,i){var d=new Date(s);d.setDate(s.getDate()+i);return d.toISOString().slice(0,10);});}
-var DN=['일','월','화','수','목','금','토'];
 function fKo(ds){var d=new Date(ds+'T12:00:00');return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';}
 function tFull(){var d=new Date(),dy=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+dy[d.getDay()];}
 function streak(){var n=0,d=new Date();while(S.history[d.toISOString().slice(0,10)]){n++;d.setDate(d.getDate()-1);}return n;}
@@ -551,25 +553,95 @@ function parseAtom(xml){
   }catch(e){return null;}
 }
 
-function fetchCh(ch){
+// 타임아웃 fetch
+function fetchT(url,ms){
+  var ctrl=typeof AbortController!=='undefined'?new AbortController():null;
+  var timer=null;
+  var p=fetch(url,ctrl?{signal:ctrl.signal}:{});
+  if(ctrl){timer=setTimeout(function(){ctrl.abort();},ms);}
+  return p.then(function(r){if(timer)clearTimeout(timer);return r;},function(e){if(timer)clearTimeout(timer);throw e;});
+}
+// 채널별 로딩 상태: {chId: {attempt:N, total:N}}
+var feedLoadState={};
+var AUTO_RETRY_DELAY=7000; // 자동 재시도 대기(ms)
+var AUTO_RETRY_MAX=3;      // 자동 재시도 최대 횟수
+
+function updateFeedLoadUI(chId,msg,sub){
+  var el=document.getElementById('fw-loading-'+chId);
+  if(!el)return;
+  el.innerHTML='<div class="feed-loading-inner">'+
+    '<div class="feed-spin"></div>'+
+    '<div class="feed-loading-txt">'+msg+'</div>'+
+    (sub?'<div class="feed-loading-sub">'+sub+'</div>':'')+
+  '</div>';
+}
+
+function fetchCh(ch,autoRetry){
+  var retryRound=(autoRetry||0);
   var c=gCache(ch.id);if(c)return Promise.resolve({ch:ch,items:c});
   var feedUrl='https://www.youtube.com/feeds/videos.xml?channel_id='+ch.id;
+  var enc=encodeURIComponent(feedUrl);
   var proxies=[
-    function(u){return'https://api.allorigins.win/get?url='+encodeURIComponent(u);},
-    function(u){return'https://api.allorigins.win/raw?url='+encodeURIComponent(u);},
-    function(u){return'https://corsproxy.io/?url='+encodeURIComponent(u);}
+    {u:'https://corsproxy.io/?url='+enc,          j:false},
+    {u:'https://api.allorigins.win/raw?url='+enc,  j:false},
+    {u:'https://api.allorigins.win/get?url='+enc,  j:true},
+    {u:'https://api.codetabs.com/v1/proxy?quest='+enc, j:false},
+    {u:'https://thingproxy.freeboard.io/fetch/'+feedUrl, j:false}
   ];
+  var proxyMsgs=[
+    '잠깐만요, 불러오는 중이에요…',
+    '서버에 연결 중이에요, 조금만 기다려 주세요 🙏',
+    '다른 경로로 시도하고 있어요…',
+    '거의 다 됐어요, 잠시만요…',
+    '마지막 경로로 시도 중이에요…'
+  ];
+  feedLoadState[ch.id]=true;
+  updateFeedLoadUI(ch.id,'잠깐만요, 불러오는 중이에요…','');
   function tryP(idx){
-    if(idx>=proxies.length){var st=gStale(ch.id);return st?Promise.resolve({ch:ch,items:st,stale:true}):Promise.resolve({ch:ch,items:null,err:'로드 실패'});}
-    return fetch(proxies[idx](feedUrl)).then(function(r){
-      if(!r.ok)throw new Error(r.status);
-      var ct=r.headers.get('content-type')||'';
-      return ct.includes('json')?r.json().then(function(j){return j.contents||'';}):r.text();
+    if(idx>=proxies.length){
+      // 스테일 캐시 있으면 바로 사용
+      var st=gStale(ch.id);
+      if(st){console.warn('[Feed] '+ch.name+' 캐시 사용');return Promise.resolve({ch:ch,items:st,stale:true});}
+      // 자동 재시도
+      if(retryRound<AUTO_RETRY_MAX){
+        var nextRound=retryRound+1;
+        var waitSec=Math.round(AUTO_RETRY_DELAY/1000);
+        console.warn('[Feed] '+ch.name+' 전체 실패 — '+waitSec+'초 후 자동 재시도 ('+nextRound+'/'+AUTO_RETRY_MAX+')');
+        updateFeedLoadUI(ch.id,
+          '잠시 후 자동으로 다시 시도할게요 🔄',
+          nextRound+'번째 재시도까지 잠깐만 기다려 주세요');
+        return new Promise(function(resolve){
+          setTimeout(function(){
+            updateFeedLoadUI(ch.id,'다시 연결하고 있어요…','');
+            resolve(fetchCh(ch,nextRound));
+          },AUTO_RETRY_DELAY);
+        });
+      }
+      console.error('[Feed] '+ch.name+' 최종 실패');
+      updateFeedLoadUI(ch.id,'네트워크 연결을 확인해 주세요 📶','위 새로고침 버튼을 눌러 다시 시도할 수 있어요');
+      return Promise.resolve({ch:ch,items:null,err:'로드 실패'});
+    }
+    updateFeedLoadUI(ch.id,proxyMsgs[Math.min(idx,proxyMsgs.length-1)],'');
+    var px=proxies[idx];
+    console.log('[Feed] '+ch.name+' #'+(idx+1)+': '+px.u.slice(0,55)+'...');
+    return fetchT(px.u,10000).then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return px.j?r.json().then(function(j){return j.contents||j.body||'';}) :r.text();
     }).then(function(txt){
-      if(!txt||!txt.includes('<feed'))throw new Error('no feed');
-      var items=parseAtom(txt);if(!items||!items.length)throw new Error('parse');
-      sCache(ch.id,items);return{ch:ch,items:items};
-    }).catch(function(){return tryP(idx+1);});
+      if(!txt)throw new Error('빈 응답');
+      if(txt.trim().charAt(0)==='{'){try{var p2=JSON.parse(txt);if(p2.contents)txt=p2.contents;}catch(e){}}
+      if(!txt.includes('<feed')&&!txt.includes('<rss'))throw new Error('피드 형식 아님');
+      var items=parseAtom(txt);if(!items||!items.length)throw new Error('파싱 실패');
+      console.log('[Feed] '+ch.name+' 성공 — '+items.length+'개');
+      delete feedLoadState[ch.id];
+      sCache(ch.id,items);
+      // 자동 재시도(retryRound>0)로 성공한 경우만 즉시 렌더 갱신
+      if(retryRound>0){renderFR(lastFR.map(function(r){return r.ch.id===ch.id?{ch:ch,items:items}:r;}));}
+      return{ch:ch,items:items};
+    }).catch(function(e){
+      console.warn('[Feed] '+ch.name+' #'+(idx+1)+' 실패: '+e.message);
+      return tryP(idx+1);
+    });
   }
   return tryP(0);
 }
@@ -577,7 +649,7 @@ function fetchCh(ch){
 // ── Episode Tap ──
 function onEpTap(url,title,thumb,chCls,chName,videoDate){
   openUrl(url);
-  // 메타데이터 저장 (중복 제거 후 앞에 추가, 최대 50개)
+  // 메타데이터 저장 (중복 제거 후 앞에 추가, 최대 500개)
   if(!lT.has(url)){
     var entry={url:url,title:title||'',thumb:thumb||'',ch:chCls||'',chName:chName||'',watchedAt:TD,videoDate:videoDate||''};
     watchHist=watchHist.filter(function(h){return h.url!==url;});
@@ -599,14 +671,28 @@ window.onEpTap=onEpTap;
 
 // ── Feed Render ──
 function wasEverWatched(url){
-  return Object.values(lR).some(function(arr){return arr.indexOf(url)>=0;});
+  if(Object.values(lR).some(function(arr){return arr.indexOf(url)>=0;}))return true;
+  return watchHist.some(function(h){return h.url===url;});
 }
 function renderFR(results){
   lastFR=results;allEps=new Set();
   var w=document.getElementById('fw');if(!w)return;
   w.innerHTML=results.map(function(r){
     var ch=r.ch,items=r.items,stale=r.stale;
-    if(!items||!items.length)return'<div class="vc"><div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div><div style="padding:10px 12px;font-size:11px;color:var(--tx3)">피드 로드 실패</div></div>';
+    if(!items||!items.length){
+      // 아직 로딩 중이면 로딩 UI 유지, 아니면 실패 안내
+      var isLoading=feedLoadState[ch.id]!==undefined;
+      return'<div class="vc" id="fw-card-'+ch.id+'">'+
+        '<div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div>'+
+        '<div id="fw-loading-'+ch.id+'">'+
+          '<div class="feed-loading-inner">'+
+            '<div class="feed-spin"></div>'+
+            '<div class="feed-loading-txt">'+(isLoading?'불러오는 중이에요…':'네트워크 연결을 확인해 주세요 📶')+'</div>'+
+            '<div class="feed-loading-sub">'+(isLoading?'':'새로고침 버튼으로 다시 시도할 수 있어요')+'</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }
     // 오늘의 선택 영상 고정: 같은 날은 항상 같은 영상을 보여줌
     var item=null;
     var pickKey='pick_'+ch.id;
@@ -691,19 +777,36 @@ function rAA(){
   aw.innerHTML=h;
 }
 
+function makeFeedLoadingCard(ch){
+  return'<div class="vc" id="fw-card-'+ch.id+'">'+
+    '<div class="vc-hd"><span class="vc-badge '+ch.cls+'">'+ch.badge+'</span><span class="vc-name">'+ch.name+'</span></div>'+
+    '<div id="fw-loading-'+ch.id+'">'+
+      '<div class="feed-loading-inner">'+
+        '<div class="feed-spin"></div>'+
+        '<div class="feed-loading-txt">잠깐만요, 불러오는 중이에요…</div>'+
+        '<div class="feed-loading-sub">피드를 가져오는 중입니다</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
 function loadFeeds(force){
   var w=document.getElementById('fw');if(!w)return;
   if(force)CHS.forEach(function(ch){try{localStorage.removeItem('fc_'+ch.id);}catch(e){}});
   var ca=CHS.map(function(ch){var f=gCache(ch.id);if(f)return{ch:ch,items:f};var s=gStale(ch.id);return s?{ch:ch,items:s,stale:true}:{ch:ch,items:null};});
-  if(ca.some(function(r){return r.items;}))renderFR(ca);
-  else w.innerHTML='<div style="padding:12px;text-align:center;font-size:12px;color:var(--tx3)">불러오는 중...</div>';
-  Promise.all(CHS.map(fetchCh)).then(function(res){renderFR(res);}).catch(function(e){console.error(e);});
+  if(ca.some(function(r){return r.items;})){
+    renderFR(ca);
+    // 캐시 없는 채널은 카드 안에 로딩 표시
+    ca.forEach(function(r){if(!r.items){var card=document.getElementById('fw-card-'+r.ch.id);if(card){var ld=document.createElement('div');ld.id='fw-loading-'+r.ch.id;ld.innerHTML='<div class="feed-loading-inner"><div class="feed-spin"></div><div class="feed-loading-txt">잠깐만요, 불러오는 중이에요…</div><div class="feed-loading-sub">피드를 가져오는 중입니다</div></div>';card.appendChild(ld);}}});
+  } else {
+    // 캐시 전혀 없음 — 채널별 로딩 카드 표시
+    w.innerHTML=CHS.map(makeFeedLoadingCard).join('');
+  }
+  Promise.all(CHS.map(function(ch){return fetchCh(ch);})).then(function(res){renderFR(res);}).catch(function(e){console.error(e);});
 }
 window.loadFeeds=loadFeeds;
 
 // ── AI Analysis ──
 function findEpData(url){for(var i=0;i<lastFR.length;i++){var items=lastFR[i].items;if(!items)continue;for(var j=0;j<items.length;j++){if(items[j].url===url)return{ch:lastFR[i].ch,item:items[j]};};}return null;}
-var aiPendingToast=null; // 복귀 시 보여줄 AI 결과 메시지
 function analyzeEp(url,forceRetry){
   if(!AK)return;
   if((azd[url]&&!forceRetry)||azing[url])return;
@@ -852,7 +955,8 @@ function render(){try{
   var ht=document.getElementById('hero-t');if(ht){if(dn)ht.textContent='오늘도 잘 했어요! 🌟';else if(nl>=2)ht.textContent='아직 안 들었어요! 🔥';else ht.textContent='오늘도 영어 듣기, 시작!';}
   var qb=document.getElementById('qbox');if(qb){var q=getQ();qb.innerHTML='<div class="qen">"'+q.e+'"</div><div class="qko">'+q.k+'</div><div class="qby">— '+q.b+'</div>';}
   var nT=['','영어 듣기 아직 안 했어요!','오후예요! 지금 안 하면 미뤄요 😅','자기 전에 꼭!! 🚨'];
-  document.getElementById('nag-w').innerHTML=nl>0?'<div class="nag l'+nl+'">'+nT[nl]+'</div>':'';
+  var nagW=document.getElementById('nag-w');nagW.style.display=nl>0?'':'none';
+  nagW.innerHTML=nl>0?'<div class="nag l'+nl+'">'+nT[nl]+'</div>':'';
   var pw=document.getElementById('prog-w');
   if(fd){
     var el=dBtw(fd,TD)+1;var wNum=Math.ceil(el/7);
@@ -870,9 +974,7 @@ function render(){try{
     '<div class="sc"><div class="n" style="color:var(--warm)">'+st+'</div><div class="l">연속🔥</div></div>'+
     '<div class="sc"><div class="n">'+tDone()+'</div><div class="l">누적</div></div>'+
     '<div class="sc'+(dn?' dn':'')+'"><div class="n" style="color:'+(dn?'var(--pri)':'var(--acc)')+'">'+(dn?'✓':'✗')+'</div><div class="l">오늘</div></div>';
-  var wD=gWeek();
   // week grid removed from home tab – still used by rCal() in settings
-  rAA();rContent();rPhoto();
   rAA();rContent();rPhoto();
 }catch(e){console.error('render:',e);}}
 
