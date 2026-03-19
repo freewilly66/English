@@ -943,7 +943,9 @@ function rVocab(){
   lE.style.display='block';
   var cnts={};VCATS.forEach(function(c){cnts[c]=0;});vocD.forEach(function(v){if(cnts[v.cat]!==undefined)cnts[v.cat]++;});
   var fl=vFil==='all'?vocD:vocD.filter(function(v){return v.cat===vFil;});
-  var showCard=fl.length>=2;
+  // 카드 버튼: 전체 단어 2개 이상이면 항상 표시 (카테고리 필터와 무관)
+  // 카테고리 필터 후 덱이 부족하면 startFC()에서 토스트로 안내
+  var showCard=vocD.length>=2;
   fE.innerHTML='<button class="vfb'+(vFil==='all'?' on':'')+'" onclick="setVF(\'all\')">전체('+vocD.length+')</button>'+VCATS.map(function(c){return cnts[c]>0?'<button class="vfb'+(vFil===c?' on':'')+'" onclick="setVF(\''+c+'\')">'+c+'('+cnts[c]+')</button>':'';}).join('')+(showCard?'<button class="vfb" onclick="startFC()" style="background:var(--warm);color:#fff;border-color:var(--warm)">🃏 카드</button>':'');
   if(!fl.length){lE.innerHTML='<div class="vempty">단어를 추가해보세요! 📚</div>';return;}
   var grp={};fl.forEach(function(v){if(!grp[v.cat])grp[v.cat]=[];grp[v.cat].push(v);});
