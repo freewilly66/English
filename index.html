@@ -7,11 +7,11 @@
 <meta name="theme-color" content="#141422" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="영어듣기">
+<meta name="apple-mobile-web-app-title" content="좋은 하루">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
-<title>영어 듣기 트래커</title>
+<title>좋은 하루</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 :root{
@@ -243,7 +243,7 @@ button,a{cursor:pointer}a{text-decoration:none}
 </head>
 <body>
 <div id="app">
-  <div class="hdr"><div class="hdr-top"><div><h1>🎧 영어 듣기 트래커</h1><div class="sub" id="h-date"></div></div><button class="nb" id="notif-btn" onclick="toggleNotif()">🔕 알림</button></div></div>
+  <div class="hdr"><div class="hdr-top"><div><h1>☀️ 좋은 하루</h1><div class="sub" id="h-date"></div></div><button class="nb" id="notif-btn" onclick="toggleNotif()">🔕 알림</button></div></div>
   <div class="scr" id="main-scr">
     <!-- HOME -->
     <div class="pg on" id="pg-home">
@@ -351,7 +351,9 @@ var allEps=new Set(),lastFR=[];
 // 시청 기록: {url, title, thumb, ch, chName, watchedAt, videoDate}
 var watchHist=lG('eh_history',[]);
 var VCATS=['단어','관용구','표현','문법','기타'];
-var vocD=lG('eh_vocab',[]),vFil='all',fcI=0,fcSh=false,fcL=[];
+var vocD=lG('eh_vocab',[]);
+var vFil=lG('eh_vfil','all');  // 마지막 필터 상태 저장
+var fcI=0,fcSh=false,fcL=[],isFC=false; // isFC: 플래시카드 모드 중 여부
 var azd=lG('eh_analyzed',{}),azing={};
 var AK='';try{AK=localStorage.getItem('eh_ak')||'';}catch(e){}
 var nagT=null,cY,cM;
@@ -507,12 +509,12 @@ function setDMin(v){var n=parseInt(v)||30;S.dMin=Math.max(5,Math.min(120,n));sv(
 function setRTime(v){if(!v)return;var p=v.split(':');S.rH=parseInt(p[0])||9;S.rM=parseInt(p[1])||0;sv();}window.setRTime=setRTime;
 function goPage(p){document.querySelectorAll('.pg').forEach(function(e){e.classList.remove('on');});document.getElementById('pg-'+p).classList.add('on');document.querySelectorAll('.nbtn').forEach(function(e){e.classList.remove('on');});document.getElementById('n-'+p).classList.add('on');document.getElementById('main-scr').scrollTop=0;if(p==='set'){rSet();rCal();}if(p==='content')rContent();}
 window.goPage=goPage;
-function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};watchLog={};todayPick={date:TD};lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_today_pick',todayPick);sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
+function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};watchLog={};todayPick={date:TD};vocD=[];vFil='all';isFC=false;lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_today_pick',todayPick);lS('eh_vocab',[]);lS('eh_vfil','all');sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
 function rstStart(){var fd=fDay();if(!fd){alert('기록 없음');return;}if(!confirm('시작일을 오늘로?')){return;}Object.keys(S.history).forEach(function(k){if(k<TD)delete S.history[k];});sv();render();rCal();rSet();}window.rstStart=rstStart;
 
 // ── Export/Import ──
 function expData(){var ph=null;try{ph=localStorage.getItem('eh_photo');}catch(e){}var d=JSON.stringify({state:S,listened:lR,vocab:vocD,analyzed:azd,watch:watchLog,history:watchHist,photo:ph,apiKey:AK,v:7},null,2);var b=new Blob([d],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='eng-tracker-'+TD+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},100);}window.expData=expData;
-function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};watchHist=d.history||[];if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}todayPick={date:TD};lS('eh_today_pick',todayPick);sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);lS('eh_history',watchHist);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
+function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};watchHist=d.history||[];if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}todayPick={date:TD};vFil='all';isFC=false;lS('eh_today_pick',todayPick);lS('eh_vfil','all');sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);lS('eh_history',watchHist);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
 
 // ── API Key ──
 function toggleAK(){var w=document.getElementById('ak-w');w.style.display=w.style.display==='none'?'block':'none';document.getElementById('ak-inp').value=AK;}window.toggleAK=toggleAK;
@@ -930,22 +932,29 @@ function closeVM(){document.getElementById('vm').style.display='none';}window.cl
 function pickC(btn,c){document.querySelectorAll('#vm-cats button').forEach(function(b){b.className='';});btn.className='on';}window.pickC=pickC;
 function saveV(){var en=document.getElementById('vm-en').value.trim(),ko=document.getElementById('vm-ko').value.trim();var ac=document.querySelector('#vm-cats button.on');var cat=ac?ac.textContent:'단어';var eid=document.getElementById('vm-eid').value;if(!en||!ko){alert('입력해주세요');return;}if(eid){var idx=vocD.findIndex(function(v){return v.id===eid;});if(idx>=0){vocD[idx].en=en;vocD[idx].ko=ko;vocD[idx].cat=cat;}}else vocD.unshift({id:'v'+Date.now(),en:en,ko:ko,cat:cat,date:TD});svV();closeVM();rVocab();}window.saveV=saveV;
 function delV(id){if(!confirm('삭제?'))return;vocD=vocD.filter(function(v){return v.id!==id;});svV();rVocab();}window.delV=delV;
-function setVF(c){vFil=c;rVocab();}window.setVF=setVF;
+function setVF(c){vFil=c;lS('eh_vfil',c);rVocab();}window.setVF=setVF;
 function rVocab(){
-  var fE=document.getElementById('vfl'),lE=document.getElementById('vlist');
+  // 카드 모드 중이면 UI 건드리지 않음 (카드가 사라지는 버그 방지)
+  if(isFC)return;
+  var fE=document.getElementById('vfl'),lE=document.getElementById('vlist'),aE=document.querySelector('.vadd');
+  // 일반 모드 UI 복원 (탭 전환 후 돌아와도 항상 보장)
+  if(aE)aE.style.display='block';
+  fE.style.display='flex';
+  document.getElementById('fcarea').style.display='none';
+  lE.style.display='block';
   var cnts={};VCATS.forEach(function(c){cnts[c]=0;});vocD.forEach(function(v){if(cnts[v.cat]!==undefined)cnts[v.cat]++;});
-  fE.innerHTML='<button class="vfb'+(vFil==='all'?' on':'')+'" onclick="setVF(\'all\')">전체('+vocD.length+')</button>'+VCATS.map(function(c){return cnts[c]>0?'<button class="vfb'+(vFil===c?' on':'')+'" onclick="setVF(\''+c+'\')">'+c+'('+cnts[c]+')</button>':'';}).join('')+(vocD.length>=3?'<button class="vfb" onclick="startFC()" style="background:var(--warm);color:#fff;border-color:var(--warm)">🃏 카드</button>':'');
-  document.getElementById('fcarea').style.display='none';lE.style.display='block';
   var fl=vFil==='all'?vocD:vocD.filter(function(v){return v.cat===vFil;});
+  var showCard=fl.length>=2;
+  fE.innerHTML='<button class="vfb'+(vFil==='all'?' on':'')+'" onclick="setVF('all')">전체('+vocD.length+')</button>'+VCATS.map(function(c){return cnts[c]>0?'<button class="vfb'+(vFil===c?' on':'')+'" onclick="setVF(''+c+'')">'+c+'('+cnts[c]+')</button>':'';}).join('')+(showCard?'<button class="vfb" onclick="startFC()" style="background:var(--warm);color:#fff;border-color:var(--warm)">🃏 카드</button>':'');
   if(!fl.length){lE.innerHTML='<div class="vempty">단어를 추가해보세요! 📚</div>';return;}
   var grp={};fl.forEach(function(v){if(!grp[v.cat])grp[v.cat]=[];grp[v.cat].push(v);});
-  var h='';(vFil==='all'?VCATS:[vFil]).forEach(function(cat){var its=grp[cat];if(!its)return;h+='<div class="vgh"><span>'+cat+'</span><span class="cnt">'+its.length+'</span></div>';its.forEach(function(v){var d=new Date(v.date+'T12:00:00');h+='<div class="vcd"><div class="va"><button onclick="openVM(\''+v.id+'\')" title="수정">✏️</button><button onclick="delV(\''+v.id+'\')" title="삭제">🗑️</button></div><div class="ven">'+esc(v.en)+'</div><div class="vko">'+esc(v.ko)+'</div><div class="vdt">'+(d.getMonth()+1)+'/'+d.getDate()+(v.src?' · '+esc(v.src):'')+(v.auto?' <span class="ai-badge">AI</span>':'')+'</div></div>';});});
+  var h='';(vFil==='all'?VCATS:[vFil]).forEach(function(cat){var its=grp[cat];if(!its)return;h+='<div class="vgh"><span>'+cat+'</span><span class="cnt">'+its.length+'</span></div>';its.forEach(function(v){var d=new Date(v.date+'T12:00:00');h+='<div class="vcd"><div class="va"><button onclick="openVM(''+v.id+'')" title="수정">✏️</button><button onclick="delV(''+v.id+'')" title="삭제">🗑️</button></div><div class="ven">'+esc(v.en)+'</div><div class="vko">'+esc(v.ko)+'</div><div class="vdt">'+(d.getMonth()+1)+'/'+d.getDate()+(v.src?' · '+esc(v.src):'')+(v.auto?' <span class="ai-badge">AI</span>':'')+'</div></div>';});});
   lE.innerHTML=h;
 }
-function startFC(){var fl=vFil==='all'?vocD.slice():vocD.filter(function(v){return v.cat===vFil;});if(fl.length<1)return;for(var i=fl.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=fl[i];fl[i]=fl[j];fl[j]=t;}fcL=fl;fcI=0;fcSh=false;document.getElementById('vlist').style.display='none';document.querySelector('.vadd').style.display='none';document.getElementById('vfl').style.display='none';rFC();}window.startFC=startFC;
+function startFC(){var fl=vFil==='all'?vocD.slice():vocD.filter(function(v){return v.cat===vFil;});if(fl.length<2){showToast('카드 모드는 단어가 2개 이상 필요해요 📚');return;}for(var i=fl.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=fl[i];fl[i]=fl[j];fl[j]=t;}fcL=fl;fcI=0;fcSh=false;isFC=true;document.getElementById('vlist').style.display='none';var aE=document.querySelector('.vadd');if(aE)aE.style.display='none';document.getElementById('vfl').style.display='none';rFC();}window.startFC=startFC;
 function rFC(){var a=document.getElementById('fcarea');a.style.display='block';if(fcI>=fcL.length){a.innerHTML='<div class="fcw"><div style="font-size:36px;margin-bottom:10px">🎉</div><div style="font-size:15px;font-weight:900">'+fcL.length+'개 완료!</div><button class="sb pr" onclick="exitFC()" style="margin-top:12px">돌아가기</button></div>';return;}var v=fcL[fcI];a.innerHTML='<div class="fcw"><div class="fccnt">'+(fcI+1)+'/'+fcL.length+'</div><div class="fcc" onclick="fcSh=true;rFC()"><div class="fccat">'+esc(v.cat)+'</div><div class="fcen">'+esc(v.en)+'</div><div class="fcko'+(fcSh?' sh':'')+'">'+esc(v.ko)+'</div>'+(fcSh?'':'<div class="fch">탭하면 뜻 보기</div>')+'</div><div class="fcnav"><button onclick="exitFC()">✕</button><button class="pr" onclick="fcI++;fcSh=false;rFC()">다음 →</button></div></div>';}
 window.rFC=rFC;
-function exitFC(){document.getElementById('fcarea').style.display='none';document.getElementById('vlist').style.display='block';document.querySelector('.vadd').style.display='block';document.getElementById('vfl').style.display='flex';rVocab();}window.exitFC=exitFC;
+function exitFC(){isFC=false;document.getElementById('fcarea').style.display='none';document.getElementById('vlist').style.display='block';var aE=document.querySelector('.vadd');if(aE)aE.style.display='block';document.getElementById('vfl').style.display='flex';rVocab();}window.exitFC=exitFC;
 
 // ── Main render ──
 function render(){try{
