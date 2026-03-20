@@ -309,7 +309,9 @@ var iOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
 var standalone=navigator.standalone||matchMedia('(display-mode:standalone)').matches;
 function lG(k,f){try{var v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
 function lS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-var TD=new Date().toISOString().slice(0,10);
+// 로컬 날짜 (YYYY-MM-DD) — toISOString()은 UTC라 한국(UTC+9)에서 자정~9시 오차 발생
+function localDate(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+var TD=localDate();
 
 // ── YouTube Channels ──
 var CHS=[
@@ -343,7 +345,9 @@ var DF={history:{},notif:false,tab:'bbc',wGoal:7,rH:9,rM:0,dMin:30};
 var S=lG('eh_state',DF);
 ['wGoal','rH','rM','dMin'].forEach(function(k){if(S[k]===undefined)S[k]=DF[k];});
 var lR=lG('eh_listened',{});
-var cutoff=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+// lR 컷오프: localDate 기준 (TD와 동일 기준으로 일관성 유지)
+var _c30=new Date(Date.now()-30*864e5);
+var cutoff=_c30.getFullYear()+'-'+String(_c30.getMonth()+1).padStart(2,'0')+'-'+String(_c30.getDate()).padStart(2,'0');
 Object.keys(lR).forEach(function(d){if(d<cutoff)delete lR[d];});
 var lT=new Set(lR[TD]||[]);
 var allEps=new Set(),lastFR=[];
@@ -356,6 +360,9 @@ var vFil=lG('eh_vfil','all');  // 마지막 필터 상태 저장
 if(vFil!=='all'&&VCATS.indexOf(vFil)<0){vFil='all';}
 var fcI=0,fcSh=false,fcL=[],isFC=false; // isFC: 플래시카드 모드 중 여부
 var azd=lG('eh_analyzed',{}),azing={};
+// azd 60일 컷오프 — URL을 키로 쓰므로 날짜 직접 비교 불가, 전체 크기로 제한
+// 분석된 URL이 2000개 초과 시 오래된 절반 제거 (앱 시작 시 1회)
+(function(){var keys=Object.keys(azd);if(keys.length>2000){keys.slice(0,keys.length-1000).forEach(function(k){delete azd[k]});lS('eh_analyzed',azd);}})();
 var AK='';try{AK=localStorage.getItem('eh_ak')||'';}catch(e){}
 var nagT=null,cY,cM;
 var aiPendingToast=null; // 복귀 시 보여줄 AI 결과 메시지
@@ -366,20 +373,45 @@ if(todayPick.date!==TD){todayPick={date:TD};lS('eh_today_pick',todayPick);}
 
 // ── Time tracking ──
 var watchLog=lG('eh_watch',{});
+// watchLog 30일 컷오프 (lR과 동일)
+(function(){var _wc=new Date(Date.now()-30*864e5);
+var wCutStr=_wc.getFullYear()+'-'+String(_wc.getMonth()+1).padStart(2,'0')+'-'+String(_wc.getDate()).padStart(2,'0');
+Object.keys(watchLog).forEach(function(k){if(k<wCutStr)delete watchLog[k];});})();
 var leaveTs=0;
+// ── 날짜 롤오버 감지 ── PWA가 메모리에 살아있는 상태로 자정을 넘기면
+// TD가 어제 날짜로 굳어버리는 문제를 포그라운드 복귀 시 체크해서 해결
+function checkDateRollover(){
+  var newTD=localDate(); // 로컬 날짜 기준
+  if(newTD===TD)return false;
+  console.log('[Date] 날짜 변경 감지: '+TD+' → '+newTD);
+  TD=newTD;
+  // 달력 월/년도 갱신
+  var nd=new Date();cY=nd.getFullYear();cM=nd.getMonth();
+  // 오늘 시청 목록 초기화
+  lT=new Set(lR[TD]||[]);
+  // 오늘의 콘텐츠 선택 초기화 (새날 새 영상)
+  todayPick={date:TD};lS('eh_today_pick',todayPick);
+  // 피드 캐시 강제 만료 → 새 피드 로드
+  CHS.forEach(function(ch){try{localStorage.removeItem('fc_'+ch.id);}catch(e){}});
+  return true;
+}
 function onLeave(){leaveTs=Date.now();try{localStorage.setItem('eh_leave',leaveTs.toString());}catch(e){}}
 function onReturn(){
+  // 날짜가 바뀌었으면 상태 초기화 후 전체 리렌더 (이후 로직은 새 TD 기준)
+  var dateChanged=checkDateRollover();
+  if(dateChanged){render();loadFeeds();}
   var ts=0;try{var s=localStorage.getItem('eh_leave');if(s)ts=parseInt(s);localStorage.removeItem('eh_leave');}catch(e){}
   if(!ts&&leaveTs)ts=leaveTs;if(!ts)return;
   var secs=Math.round((Date.now()-ts)/1000);
   // 채널 페이지로 나간 경우 → 복귀 시 "뭘 봤나요?" 프롬프트
   var ctx=null;try{var cs=localStorage.getItem('eh_leave_ctx');if(cs){ctx=JSON.parse(cs);localStorage.removeItem('eh_leave_ctx');}}catch(e){}
-  if(secs>5&&secs<7200){
+  // ctx가 있을 때 = YouTube로 나간 경우만 학습 시간으로 카운트
+  // ctx가 없으면 홈버튼/잠금 등 단순 백그라운드 → 카운트 안 함
+  if(secs>5&&secs<14400&&ctx){
     if(!watchLog[TD])watchLog[TD]=0;
     watchLog[TD]+=secs;lS('eh_watch',watchLog);
-    render();
-    // 채널 페이지로 나간 경우만 프롬프트 (이미 아는 특정 영상은 onEpTap이 처리)
-    if(ctx&&ctx.type==='ch'){
+    if(!dateChanged)render();
+    if(ctx.type==='ch'){
       setTimeout(function(){showReturnPrompt(ctx.ch,secs);},400);
     } else {
       var m=Math.floor(secs/60),s2=secs%60;
@@ -393,7 +425,7 @@ function onReturn(){
 document.addEventListener('visibilitychange',function(){document.hidden?onLeave():onReturn();});
 window.addEventListener('pagehide',onLeave);
 window.addEventListener('pageshow',function(e){if(e.persisted)onReturn();});
-window.addEventListener('focus',onReturn);
+// focus 이벤트 제거 — iOS PWA에서 탭마다 발화해 불필요한 onReturn 유발
 window.addEventListener('DOMContentLoaded',function(){if(localStorage.getItem('eh_leave'))onReturn();});
 
 // ── Return Prompt (유튜브 채널에서 돌아왔을 때) ──
@@ -488,7 +520,15 @@ function showToast(m,t){var o=document.querySelector('.toast');if(o)o.remove();v
 // ── Date helpers ──
 function fKo(ds){var d=new Date(ds+'T12:00:00');return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';}
 function tFull(){var d=new Date(),dy=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+dy[d.getDay()];}
-function streak(){var n=0,d=new Date();while(S.history[d.toISOString().slice(0,10)]){n++;d.setDate(d.getDate()-1);}return n;}
+function streak(){
+  var n=0,d=new Date(),max=3000; // max: 무한루프 방지 (700일+ 연속 사용 지원)
+  while(max-->0){
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(!S.history[ds])break;
+    n++;d.setDate(d.getDate()-1);
+  }
+  return n;
+}
 function fDay(){var k=Object.keys(S.history).filter(function(k){return S.history[k];}).sort();return k[0]||null;}
 function tDone(){return Object.values(S.history).filter(Boolean).length;}
 function dBtw(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);}
@@ -510,12 +550,24 @@ function setDMin(v){var n=parseInt(v)||30;S.dMin=Math.max(5,Math.min(120,n));sv(
 function setRTime(v){if(!v)return;var p=v.split(':');S.rH=parseInt(p[0])||9;S.rM=parseInt(p[1])||0;sv();}window.setRTime=setRTime;
 function goPage(p){document.querySelectorAll('.pg').forEach(function(e){e.classList.remove('on');});document.getElementById('pg-'+p).classList.add('on');document.querySelectorAll('.nbtn').forEach(function(e){e.classList.remove('on');});document.getElementById('n-'+p).classList.add('on');document.getElementById('main-scr').scrollTop=0;if(p==='set'){rSet();rCal();}if(p==='content')rContent();}
 window.goPage=goPage;
-function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};watchLog={};todayPick={date:TD};vocD=[];vFil='all';isFC=false;lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_today_pick',todayPick);lS('eh_vocab',[]);lS('eh_vfil','all');sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
+function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};azing={};watchLog={};watchHist=[];todayPick={date:TD};vocD=[];vFil='all';isFC=false;lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_history',[]);lS('eh_today_pick',todayPick);lS('eh_vocab',[]);lS('eh_vfil','all');sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
 function rstStart(){var fd=fDay();if(!fd){alert('기록 없음');return;}if(!confirm('시작일을 오늘로?')){return;}Object.keys(S.history).forEach(function(k){if(k<TD)delete S.history[k];});sv();render();rCal();rSet();}window.rstStart=rstStart;
 
 // ── Export/Import ──
 function expData(){var ph=null;try{ph=localStorage.getItem('eh_photo');}catch(e){}var d=JSON.stringify({state:S,listened:lR,vocab:vocD,analyzed:azd,watch:watchLog,history:watchHist,photo:ph,apiKey:AK,v:7},null,2);var b=new Blob([d],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='eng-tracker-'+TD+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},100);}window.expData=expData;
-function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);vocD=d.vocab||[];watchLog=d.watch||{};azd=d.analyzed||{};watchHist=d.history||[];if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}todayPick={date:TD};vFil='all';isFC=false;lS('eh_today_pick',todayPick);lS('eh_vfil','all');sv();svL();svV();lS('eh_analyzed',azd);lS('eh_watch',watchLog);lS('eh_history',watchHist);render();rCal();alert('복원 완료');}catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
+function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);
+        vocD=d.vocab||[];if(vocD.length>1000)vocD=vocD.slice(0,1000); // 1000개 상한
+        watchLog=d.watch||{};azd=d.analyzed||{};
+        watchHist=d.history||[];
+        if(watchHist.length>500)watchHist=watchHist.slice(0,500);
+        if(d.apiKey)try{localStorage.setItem('eh_ak',d.apiKey);AK=d.apiKey;}catch(e){}
+        if(d.photo)try{localStorage.setItem('eh_photo',d.photo);}catch(e){}
+        todayPick={date:TD};vFil='all';isFC=false;
+        lS('eh_today_pick',todayPick);lS('eh_vfil','all');
+        sv();svL();svV();
+        lS('eh_analyzed',azd);lS('eh_watch',watchLog);
+        lS('eh_history',watchHist);render();rCal();alert('복원 완료');
+      }catch(err){alert('오류: '+err.message);}};r.readAsText(f);inp.value='';}window.impData=impData;
 
 // ── API Key ──
 function toggleAK(){var w=document.getElementById('ak-w');w.style.display=w.style.display==='none'?'block':'none';document.getElementById('ak-inp').value=AK;}window.toggleAK=toggleAK;
@@ -754,7 +806,8 @@ function rAA(){
   var aw=document.getElementById('aw');if(!aw)return;
   if(S.history[TD]){
     var mins=watchLog[TD]?Math.floor(watchLog[TD]/60):0;
-    aw.innerHTML='<div class="bdone"><div style="font-size:24px;margin-bottom:4px">🎉</div><div style="font-size:14px;font-weight:900;color:var(--pri)">오늘 완료!</div>'+(mins>0?'<div class="mins">오늘 학습 '+mins+'분</div>':'')+'</div>';
+    var secs2=watchLog[TD]?watchLog[TD]%60:0;
+    aw.innerHTML='<div class="bdone"><div style="font-size:24px;margin-bottom:4px">🎉</div>'+'<div style="font-size:14px;font-weight:900;color:var(--pri)">오늘 완료!</div>'+(watchLog[TD]>0?'<div class="mins">오늘 학습 '+(mins>0?mins+'분 ':'')+secs2+'초</div>':'')+'</div>';
     return;
   }
   var tot=allEps.size;
@@ -843,7 +896,15 @@ function analyzeEp(url,forceRetry){
       var dup=vocD.some(function(v){return v.en.toLowerCase()===it.en.toLowerCase();});
       if(!dup){vocD.unshift({id:'v'+Date.now()+Math.random().toString(36).substr(2,4),en:it.en,ko:it.ko,cat:cat,date:TD,src:chName,auto:true});added++;}
     });
-    if(added>0){svV();aiPendingToast='📝 단어 '+added+'개 자동 추가!';}
+    if(added>0){
+      // vocD 1000개 상한: 초과 시 auto 단어 중 가장 오래된 것부터 제거
+      var MAX_VOC=1000;
+      if(vocD.length>MAX_VOC){
+        for(var ai2=vocD.length-1;ai2>=0&&vocD.length>MAX_VOC;ai2--){
+          if(vocD[ai2].auto){vocD.splice(ai2,1);}
+        }
+      }
+      svV();aiPendingToast='📝 단어 '+added+'개 자동 추가!';}
     else{aiPendingToast='🤖 AI 분석 완료 (신규 단어 없음)';}
     azd[url]=true;lS('eh_analyzed',azd);delete azing[url];
     // 앱이 foreground 상태면 즉시 표시
@@ -973,14 +1034,15 @@ function render(){try{
   var pw=document.getElementById('prog-w');
   if(fd){
     var el=dBtw(fd,TD)+1;var wNum=Math.ceil(el/7);
-    var now=new Date(),startOfYear=new Date(now.getFullYear(),0,1),yearDay=Math.ceil((now-startOfYear)/864e5),yearWeek=Math.ceil(yearDay/7);
+    var now=new Date(),startOfYear=new Date(now.getFullYear(),0,1),yearDay=Math.max(1,Math.ceil((now-startOfYear)/864e5)),yearWeek=Math.ceil(yearDay/7);
     var todayMin=watchLog[TD]?Math.floor(watchLog[TD]/60):0;
+    var todaySec=watchLog[TD]?watchLog[TD]%60:0;
     pw.innerHTML='<div class="slb">진행 현황</div><div class="ibox">'+
       '<div class="il"><span>시작일</span><span class="v">'+fKo(fd)+'</span></div>'+
       '<div class="il"><span>경과 (오늘은 '+now.getFullYear()+'년 '+yearWeek+'주 '+yearDay+'일째입니다)</span><span class="v">'+wNum+'주째 · '+el+'일차</span></div>'+
       '<div class="il"><span>연속</span><span class="v" style="color:var(--warm)">'+st+'일 🔥</span></div>'+
       '<div class="il"><span>주간 목표</span><span class="v">'+S.wGoal+'일 / '+S.dMin+'분</span></div>'+
-      (todayMin>0?'<div class="il"><span>오늘 학습</span><span class="v" style="color:var(--pri)">'+todayMin+'분</span></div>':'')+
+      (watchLog[TD]>0?'<div class="il"><span>오늘 학습</span><span class="v" style="color:var(--pri)">'+(todayMin>0?todayMin+'분 ':'')+todaySec+'초</span></div>':'')+
       '</div>';
   }else pw.innerHTML='<div style="font-size:12px;color:var(--tx2);padding:4px 0">첫 완료를 해보세요!</div>';
   document.getElementById('sg3').innerHTML=
