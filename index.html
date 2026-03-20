@@ -634,6 +634,10 @@ function updateFeedLoadUI(chId,msg,sub){
 function fetchCh(ch,autoRetry){
   var retryRound=(autoRetry||0);
   var c=gCache(ch.id);if(c)return Promise.resolve({ch:ch,items:c});
+  // 이미 로딩 중이면 (재시도가 아닌 신규 호출) 중복 실행 차단
+  if(retryRound===0&&feedLoadState[ch.id]){
+    return new Promise(function(){});
+  }
   var feedUrl='https://www.youtube.com/feeds/videos.xml?channel_id='+ch.id;
   var enc=encodeURIComponent(feedUrl);
   var proxies=[
@@ -673,6 +677,7 @@ function fetchCh(ch,autoRetry){
         });
       }
       console.error('[Feed] '+ch.name+' 최종 실패');
+      delete feedLoadState[ch.id]; // 실패 시 상태 해제 (스피너 무한표시 방지)
       updateFeedLoadUI(ch.id,'네트워크 연결을 확인해 주세요 📶','위 새로고침 버튼을 눌러 다시 시도할 수 있어요');
       return Promise.resolve({ch:ch,items:null,err:'로드 실패'});
     }
