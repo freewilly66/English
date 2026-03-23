@@ -522,6 +522,9 @@ function fKo(ds){var d=new Date(ds+'T12:00:00');return d.getFullYear()+'년 '+(d
 function tFull(){var d=new Date(),dy=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+dy[d.getDay()];}
 function streak(){
   var n=0,d=new Date(),max=3000; // max: 무한루프 방지 (700일+ 연속 사용 지원)
+  // 오늘 아직 안 했으면 어제부터 카운트 (앱 열때 0 표시 방지)
+  var todayDs=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(!S.history[todayDs])d.setDate(d.getDate()-1);
   while(max-->0){
     var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     if(!S.history[ds])break;
