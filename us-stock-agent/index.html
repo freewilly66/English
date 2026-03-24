@@ -516,9 +516,14 @@ body{font-family:var(--font);background:var(--bg-sub);color:var(--text);
   <!-- Discover tab -->
   <div class="tab-pane active" id="tab-discover">
     <div id="installHint"></div>
-    <div class="disc-pad" style="margin-top:12px; margin-bottom:12px; display:flex; gap:8px;">
-      <input class="field-input" id="spcSearchInput" type="text" placeholder="예: Apple 또는 AAPL" style="flex:1;">
-      <button class="add-btn" id="spcSearchBtn" onclick="searchSpecificStock()">지정 종목 분석</button>
+    <div style="padding:14px 16px 6px;">
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px; box-shadow:var(--sh);">
+        <div style="font-size:12px; font-weight:600; margin-bottom:10px; color:var(--text-2); display:flex; align-items:center; gap:6px;"><span style="font-size:14px;">🔍</span> 특정 종목 심층 분석</div>
+        <div style="display:flex; gap:8px;">
+          <input class="field-input mono" id="spcSearchInput" type="text" placeholder="회사명 또는 티커 (예: AAPL)" style="flex:1; padding:9px 12px; font-size:14px; border-color:var(--border-sm);">
+          <button class="hdr-btn" id="spcSearchBtn" onclick="searchSpecificStock()" style="background:var(--text); color:var(--bg); padding:9px 16px; font-size:13px; border:none; cursor:pointer; border-radius:var(--r);">바로 분석</button>
+        </div>
+      </div>
     </div>
     <div id="discoverContent">
       <div class="empty">
@@ -1215,6 +1220,28 @@ function renderDiscovery(){
     return;
   }
   let html='<div class="disc-pad">';
+  
+  if (discoveries.debate) {
+    html += `<div style="margin-bottom: 24px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--sh);">
+      <div style="padding: 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">⚖️</span> AI 투자 위원회 토론 기록
+      </div>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: rgba(16, 185, 129, 0.05); border-left: 3px solid var(--buy); padding: 12px; border-radius: 6px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--buy); margin-bottom: 8px;">🐂 강세론자 (Perma-Bull)</div>
+          <div style="font-size: 13px; line-height: 1.5; color: var(--text-2); white-space: pre-wrap; max-height: 200px; overflow-y: auto;">\${esc(discoveries.debate.bull)}</div>
+        </div>
+        <div style="background: rgba(239, 68, 68, 0.05); border-left: 3px solid var(--sell); padding: 12px; border-radius: 6px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--sell); margin-bottom: 8px;">🐻 비관론자 (Perma-Bear)</div>
+          <div style="font-size: 13px; line-height: 1.5; color: var(--text-2); white-space: pre-wrap; max-height: 200px; overflow-y: auto;">\${esc(discoveries.debate.bear)}</div>
+        </div>
+        <div style="background: var(--bg-sub); border-left: 3px solid #6366f1; padding: 12px; border-radius: 6px;">
+          <div style="font-size: 11px; font-weight: 700; color: #6366f1; margin-bottom: 8px;">👔 수석 CIO (Synthesizer)</div>
+          <div style="font-size: 14px; font-weight: 600; line-height: 1.6; color: var(--text); white-space: pre-wrap;">\${esc(discoveries.debate.cio)}</div>
+        </div>
+      </div>
+    </div>`;
+  }
   const grps=[
     {key:'ultra',icon:'⚡',label:'초단기 (1주일 이내)',data:discoveries.ultra},
     {key:'short',icon:'📅',label:'단기 (2-3개월)',data:discoveries.short},
@@ -1267,17 +1294,6 @@ function renderDiscCard(s,grpKey){
     ${(pd.risks||[]).length>0?`<div style="font-size:10px;color:var(--text-3);margin-bottom:8px"><strong style="color:var(--text-2)">⚠ 리스크:</strong> ${esc(pd.risks.slice(0,2).join(' · '))}</div>`:''}
   `:'';
 
-  const committeeHtml = s.committee ? `
-    <div style="background:var(--bg-muted);border:1px solid var(--border-sm);border-radius:var(--r);padding:10px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text-2);">⚖️ AI 위원회 다각적 평가</div>
-      <div style="display:flex;flex-direction:column;gap:5px;">
-        <div style="font-size:11px;line-height:1.4;"><span style="color:var(--buy);font-weight:600">● 긍정(Bull):</span> ${esc(s.committee.bull||'')}</div>
-        <div style="font-size:11px;line-height:1.4;"><span style="color:var(--sell);font-weight:600">● 우려(Bear):</span> ${esc(s.committee.bear||'')}</div>
-        <div style="font-size:11px;line-height:1.4;"><span style="color:var(--ultra);font-weight:600">● 총괄(CIO):</span> ${esc(s.committee.cio||'')}</div>
-      </div>
-    </div>
-  ` : '';
-
   return `<div class="disc-card" style="${isPioneer?'border:1.5px solid #fed7aa;background:linear-gradient(to bottom,#fff7ed 0%,#fff 60%)':''}">
     ${isPioneer?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #fed7aa">
       <span style="font-size:11px;font-weight:700;color:#ea580c;font-family:var(--mono)">🚀 PIONEER</span>
@@ -1302,7 +1318,6 @@ function renderDiscCard(s,grpKey){
       <div class="dp"><span class="dpl">${isPioneer?'1년목표/손절':'목표/손절'}</span><span class="dpv" style="font-size:11px"><span class="r">${esc(s.target||'—')}</span> <span style="color:var(--text-4)">/</span> <span class="a">${esc(s.stop_loss||'—')}</span></span></div>
     </div>
     ${s.hold?`<div style="font-size:10px;margin-bottom:8px;text-align:right;"><span style="background:var(--bg-muted);padding:2px 6px;border-radius:3px;border:1px solid var(--border-sm);color:var(--text-2)">예상 보유기간: <strong>${esc(s.hold)}</strong></span></div>`:''}
-    ${committeeHtml}
     <div style="margin:10px 0 10px">
       <div class="dc-reason">${esc(s.reason||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>
     </div>
