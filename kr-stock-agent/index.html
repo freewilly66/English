@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>KR Stock AI</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="hdr-brand">
+      <div class="hdr-icon">KR</div>
+      <div>
+        <div class="hdr-title">KR StockAI</div>
+        <div class="hdr-sub">한국 주식 자율 에이전트</div>
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <a href="../index.html" style="text-decoration:none; display:flex; align-items:center; justify-content:center; width:32px; height:32px; font-size:16px; border-radius:var(--r); background:var(--bg-muted); margin-right:4px; border:1px solid var(--border-sm);">🏠</a>
+      <button class="hdr-btn" id="scanBtn">▶ 탐색</button>
+    </div>
+  </header>
+
+  <!-- Progress -->
+  <div class="pgbar"><div class="pgfill" id="pg"></div></div>
+
+  <!-- Agent log strip -->
+  <div class="agent-strip" id="agentStrip" style="display:none">
+    <div class="agent-strip-inner" id="agentLog"></div>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tabs-wrap">
+    <!-- Discover tab -->
+    <div class="tab-pane active" id="tab-discover">
+      <div style="padding:14px 16px 6px;">
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px; box-shadow:var(--sh);">
+          <div style="font-size:12px; font-weight:600; margin-bottom:10px; color:var(--text-2); display:flex; align-items:center; gap:6px;"><span style="font-size:14px;">🔍</span> 특정 종목 심층 분석</div>
+          <div style="display:flex; gap:8px;">
+            <input class="field-input mono" id="specificTickerInput" type="text" placeholder="종목코드 (예: 005930)" style="flex:1; padding:9px 12px; font-size:14px; border-color:var(--border-sm);">
+            <button class="hdr-btn" id="btn-specific-analyze" style="background:var(--text); color:#fff; padding:9px 16px; font-size:13px;">바로 분석</button>
+          </div>
+        </div>
+      </div>
+      <div id="discoverContent">
+        <div class="empty">
+          <div class="empty-icon">🛰️</div>
+          <div class="empty-t">탐색 준비 완료</div>
+          <div class="empty-s">상단 <strong>▶ 탐색</strong> 버튼을 눌러 AI 에이전트를 시작하세요.<br><br>최신 트렌드와 파이어니어 종목들을 스캔합니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio tab -->
+    <div class="tab-pane" id="tab-portfolio">
+      <div id="portfolioContent"><div class="empty"><div class="empty-icon">💼</div><div class="empty-t">보유 종목 없음</div><div class="empty-s">탐색 탭에서 추천 종목을 매수 기록하면 여기에 표시됩니다.</div></div></div>
+    </div>
+
+    <!-- Dashboard tab -->
+    <div class="tab-pane" id="tab-dash">
+      <div id="dashContent"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Tab Bar -->
+  <nav class="tabbar">
+    <button class="tab-item active" id="tb-discover">
+      <span class="ti">🔭</span>
+      <span class="tl">탐색</span>
+    </button>
+    <button class="tab-item" id="tb-portfolio">
+      <span class="ti">💼</span>
+      <span class="tl">포트폴리오</span>
+    </button>
+    <button class="tab-item" id="tb-dash">
+      <span class="ti">📊</span>
+      <span class="tl">성과</span>
+    </button>
+    <button class="tab-item" id="btn-settings" style="flex:0.6;">
+      <span class="ti" style="font-size:18px;">⚙️</span>
+      <span class="tl">설정</span>
+    </button>
+  </nav>
+
+  <!-- Settings Modal (API Key) -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-sheet">
+      <div class="modal-grab"></div>
+      <div class="modal-title">설정</div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field-label" for="apiKeyInput">Google Gemini API Key</label>
+          <input class="field-input mono" id="apiKeyInput" type="password" placeholder="AIzaSy...">
+          <div class="field-hint" style="margin-top: 6px;">브라우저(로컬)에만 안전하게 저장되며 구글 서버로 직접 통신합니다. 키 발급은 <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>를 확인하세요.</div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="apiKeyFinnhubInput">Finnhub API Key (실시간 주가 조회용)</label>
+          <input class="field-input mono" id="apiKeyFinnhubInput" type="password" placeholder="Finnhub Key...">
+          <div class="field-hint" style="margin-top: 6px;">포트폴리오 실시간 수익률 계산에 사용됩니다. <a href="https://finnhub.io/register" target="_blank">Finnhub</a>에서 무료 발급 가능합니다.</div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="gasUrlInput">Google Apps Script URL (선택)</label>
+          <input class="field-input mono" id="gasUrlInput" type="text" placeholder="https://script.google.com/...">
+          <div class="field-hint" style="margin-top: 6px;">AI의 과거 분석 데이터를 자동 저장하고 스스로 성찰(Reflection Loop)하게 돕는 구글 시트 연동 주소입니다.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">테마 설정</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <button class="field-input" id="theme-auto" style="font-size:12px; padding: 10px 4px;">시스템</button>
+            <button class="field-input" id="theme-light" style="font-size:12px; padding: 10px 4px;">라이트</button>
+            <button class="field-input" id="theme-dark" style="font-size:12px; padding: 10px 4px;">다크</button>
+          </div>
+        </div>
+        <div class="field" style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border-sm);">
+          <button class="field-input" id="btn-export-csv" style="font-size:12px; font-weight:700; background:var(--bg-muted); cursor:pointer;">📥 거래 내역 내보내기 (.CSV)</button>
+        </div>
+        <button class="modal-submit" id="btn-save-settings">저장</button>
+        <button class="modal-cancel" id="btn-close-settings">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buy Modal -->
+  <div class="modal-overlay" id="buyModal">
+    <div class="modal-sheet">
+      <div class="modal-grab"></div>
+      <div class="modal-title" id="buyModalTitle">매수 기록</div>
+      <div class="modal-body">
+        <div class="field">
+          <div class="field-label">그룹 선택</div>
+          <div class="grp-selector" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;">
+            <div class="grp-opt ultra selected" data-grp="ultra" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 6px;text-align:center;cursor:pointer;">
+              <span class="grp-opt-icon" style="font-size:18px;display:block;margin-bottom:6px;">⚡</span>
+              <div class="grp-opt-name" style="font-size:12px;font-weight:600;">초단기</div>
+              <div class="grp-opt-desc" style="font-size:10px;color:var(--text-3);margin-top:2px;">1주일 이내</div>
+            </div>
+            <div class="grp-opt short" data-grp="short" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 6px;text-align:center;cursor:pointer;">
+              <span class="grp-opt-icon" style="font-size:18px;display:block;margin-bottom:6px;">📅</span>
+              <div class="grp-opt-name" style="font-size:12px;font-weight:600;">단기</div>
+              <div class="grp-opt-desc" style="font-size:10px;color:var(--text-3);margin-top:2px;">2-3개월</div>
+            </div>
+            <div class="grp-opt long" data-grp="long" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 6px;text-align:center;cursor:pointer;">
+              <span class="grp-opt-icon" style="font-size:18px;display:block;margin-bottom:6px;">♾️</span>
+              <div class="grp-opt-name" style="font-size:12px;font-weight:600;">장기</div>
+              <div class="grp-opt-desc" style="font-size:10px;color:var(--text-3);margin-top:2px;">영원히</div>
+            </div>
+          </div>
+        </div>
+        <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div class="field-label" style="margin-bottom:8px;">매수가 (원)</div>
+            <input class="field-input mono" id="buyPrice" type="number" step="1" placeholder="50000" inputmode="numeric">
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:8px;">수량 (주)</div>
+            <input class="field-input mono" id="buyQty" type="number" step="1" placeholder="10" inputmode="numeric">
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label" style="margin-bottom:8px;">매수일</div>
+          <input class="field-input" id="buyDate" type="date">
+        </div>
+        <button class="modal-submit" id="btn-confirm-buy">매수 기록 저장</button>
+        <button class="modal-cancel" id="btn-close-buy">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sell Modal -->
+  <div class="modal-overlay" id="sellModal">
+    <div class="modal-sheet">
+      <div class="modal-grab"></div>
+      <div class="modal-title" id="sellModalTitle">매도 기록</div>
+      <div class="modal-body">
+        <div id="agentSellThinking" style="display:none;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--ultra-bg);border:1px solid var(--ultra-bd);border-radius:var(--r);font-size:13px;color:var(--ultra);font-weight:500;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--ultra);animation:blink .7s infinite;"></div>에이전트가 매도 시점 분석 중...
+          </div>
+        </div>
+        <div id="agentSellRec" style="display:none;margin-bottom:16px">
+          <div id="agentSellRecContent" style="background:var(--bg-sub);border:1px solid var(--border);border-radius:var(--r);padding:14px;"></div>
+        </div>
+        <div class="field">
+          <div class="field-label" style="margin-bottom:8px;">매도 유형</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div id="sellTypePartial" class="selected" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">부분 매도</div>
+            <div id="sellTypeAll" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">전체 매도</div>
+          </div>
+        </div>
+        <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div class="field-label" style="margin-bottom:8px;">매도가 (원)</div>
+            <input class="field-input mono" id="sellPrice" type="number" step="1" placeholder="55000" inputmode="numeric">
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:8px;">매도 수량</div>
+            <input class="field-input mono" id="sellQty" type="number" step="1" placeholder="5" inputmode="numeric">
+          </div>
+        </div>
+        <div id="sellPreview" style="display:none;background:var(--bg-sub);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text-3)">평균 매수가</span><span id="spAvgBuy" style="font-family:var(--mono);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text-3)">매도 총액</span><span id="spSellAmt" style="font-family:var(--mono);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text-3)">예상 손익</span><span id="spPnl" style="font-family:var(--mono);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding-top:8px;border-top:1px solid var(--border-sm);margin-top:2px;"><span style="color:var(--text-3)">손익률</span><span id="spRate" style="font-family:var(--mono);font-weight:700;">—</span></div>
+        </div>
+        <button class="modal-submit" style="background:var(--sell)" id="btn-confirm-sell">매도 기록 저장</button>
+        <button class="modal-cancel" id="btn-close-sell">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal-sheet">
+      <div class="modal-grab"></div>
+      <div class="modal-title" id="detailTitle">종목 상세</div>
+      <div class="modal-body" id="detailBody"></div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes blink { 0%,100% {opacity:1} 50% {opacity:.3} }
+    /* Inline styles for dynamically toggled components */
+    .grp-opt.selected { background: var(--bg) !important; box-shadow: 0 0 0 2px inset var(--border); }
+    .grp-opt.selected.ultra { border-color: var(--ultra) !important; background: var(--ultra-bg) !important; box-shadow: none; }
+    .grp-opt.selected.short { border-color: var(--short) !important; background: var(--short-bg) !important; box-shadow: none; }
+    .grp-opt.selected.long { border-color: var(--long) !important; background: var(--long-bg) !important; box-shadow: none; }
+    
+    #sellTypePartial.selected, #sellTypeAll.selected { border-color: var(--sell) !important; background: var(--sell-bg) !important; color: var(--sell); }
+  </style>
+
+  <!-- ES Modules Entry Point -->
+  <script src="js/bundle.js"></script>
+
+  <!-- Service Worker Registration for PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+  </script>
+</body>
+</html>

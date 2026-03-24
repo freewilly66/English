@@ -1,0 +1,17 @@
+{
+  "name": "KR Stock AI",
+  "short_name": "KR StockAI",
+  "description": "한국 주식 자율 탐색 AI 에이전트 및 포트폴리오 트래커",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
