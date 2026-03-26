@@ -151,7 +151,9 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .vfb{padding:4px 10px;border:1px solid var(--bd);border-radius:12px;background:transparent;font-size:10px;font-weight:700;color:var(--tx2);cursor:pointer;-webkit-appearance:none}
 .vfb.on{background:var(--pri);color:#fff;border-color:var(--pri)}
 .vgh{font-size:11px;font-weight:700;color:var(--pri);margin-bottom:6px;display:flex;justify-content:space-between}.vgh .cnt{font-weight:400;color:var(--tx3);font-size:10px}
-.vcd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rad-s);padding:10px 12px;margin-bottom:6px;position:relative}
+.vcd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rad-s);padding:10px 12px;margin-bottom:6px;position:relative;content-visibility:auto;contain-intrinsic-size:auto 90px}
+.vload{width:100%;padding:10px;background:none;border:1.5px solid var(--bd);border-radius:var(--rad-s);font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;margin-top:4px;-webkit-appearance:none}
+.vload:active{background:var(--sf2)}
 .vcd .ven{font-size:13px;font-weight:700;line-height:1.4}.vcd .vko{font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.3}
 .vcd .vdt{font-size:9px;color:var(--tx3);margin-top:4px}
 .vcd .va{position:absolute;top:8px;right:8px;display:flex;gap:2px}
@@ -371,6 +373,9 @@ var watchHist=lG('eh_history',[]);
 var VCATS=['단어','관용구','표현','문법','기타'];
 var vocD=lG('eh_vocab',[]);
 var vFil=lG('eh_vfil','all');  // 마지막 필터 상태 저장
+var VOC_MAX=300;   // 단어장 상한
+var VOC_PAGE=30;   // 페이지당 표시 수
+var vocPage=VOC_PAGE; // 현재 표시 상태
 // 저장된 필터가 유효하지 않으면(단어 없는 카테고리 등) 'all'로 복원
 if(vFil!=='all'&&VCATS.indexOf(vFil)<0){vFil='all';}
 var fcI=0,fcSh=false,fcL=[],isFC=false; // isFC: 플래시카드 모드 중 여부
@@ -574,7 +579,7 @@ function rstStart(){var fd=fDay();if(!fd){alert('기록 없음');return;}if(!con
 // ── Export/Import ──
 function expData(){var ph=null;try{ph=localStorage.getItem('eh_photo');}catch(e){}var d=JSON.stringify({state:S,listened:lR,vocab:vocD,analyzed:azd,watch:watchLog,history:watchHist,photo:ph,apiKey:AK,v:7},null,2);var b=new Blob([d],{type:'application/json'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='eng-tracker-'+TD+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},100);}window.expData=expData;
 function impData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(!d.state){alert('유효하지 않음');return;}if(!confirm('교체?'))return;S=Object.assign({},DF,d.state);lR=d.listened||{};lT=new Set(lR[TD]||[]);
-        vocD=d.vocab||[];if(vocD.length>1000)vocD=vocD.slice(0,1000); // 1000개 상한
+        vocD=d.vocab||[];if(vocD.length>VOC_MAX){vocD=vocD.slice(0,VOC_MAX);} // 300개 상한
         watchLog=d.watch||{};azd=d.analyzed||{};
         watchHist=d.history||[];
         if(watchHist.length>500)watchHist=watchHist.slice(0,500);
@@ -916,13 +921,8 @@ function analyzeEp(url,forceRetry){
       if(!dup){vocD.unshift({id:'v'+Date.now()+Math.random().toString(36).substr(2,4),en:it.en,ko:it.ko,cat:cat,date:TD,src:chName,auto:true});added++;}
     });
     if(added>0){
-      // vocD 1000개 상한: 초과 시 auto 단어 중 가장 오래된 것부터 제거
-      var MAX_VOC=1000;
-      if(vocD.length>MAX_VOC){
-        for(var ai2=vocD.length-1;ai2>=0&&vocD.length>MAX_VOC;ai2--){
-          if(vocD[ai2].auto){vocD.splice(ai2,1);}
-        }
-      }
+      // vocD 300개 상한: 초과 시 가장 오래된 것부터 제거
+      if(vocD.length>VOC_MAX){vocD.splice(VOC_MAX);}
       svV();aiPendingToast='📝 단어 '+added+'개 자동 추가!';}
     else{aiPendingToast='🤖 AI 분석 완료 (신규 단어 없음)';}
     azd[url]=true;lS('eh_analyzed',azd);delete azing[url];
@@ -1009,9 +1009,9 @@ function openVM(editId){document.getElementById('vm').style.display='flex';docum
 window.openVM=openVM;
 function closeVM(){document.getElementById('vm').style.display='none';}window.closeVM=closeVM;
 function pickC(btn,c){document.querySelectorAll('#vm-cats button').forEach(function(b){b.className='';});btn.className='on';}window.pickC=pickC;
-function saveV(){var en=document.getElementById('vm-en').value.trim(),ko=document.getElementById('vm-ko').value.trim();var ac=document.querySelector('#vm-cats button.on');var cat=ac?ac.textContent:'단어';var eid=document.getElementById('vm-eid').value;if(!en||!ko){alert('입력해주세요');return;}if(eid){var idx=vocD.findIndex(function(v){return v.id===eid;});if(idx>=0){vocD[idx].en=en;vocD[idx].ko=ko;vocD[idx].cat=cat;}}else vocD.unshift({id:'v'+Date.now(),en:en,ko:ko,cat:cat,date:TD});svV();closeVM();rVocab();}window.saveV=saveV;
+function saveV(){var en=document.getElementById('vm-en').value.trim(),ko=document.getElementById('vm-ko').value.trim();var ac=document.querySelector('#vm-cats button.on');var cat=ac?ac.textContent:'단어';var eid=document.getElementById('vm-eid').value;if(!en||!ko){alert('입력해주세요');return;}if(eid){var idx=vocD.findIndex(function(v){return v.id===eid;});if(idx>=0){vocD[idx].en=en;vocD[idx].ko=ko;vocD[idx].cat=cat;}}else{vocD.unshift({id:'v'+Date.now(),en:en,ko:ko,cat:cat,date:TD});var removed=0;while(vocD.length>VOC_MAX){vocD.pop();removed++;}if(removed)showToast('오래된 단어 '+removed+'개 자동 삭제됨 (상한 '+VOC_MAX+'개)');vocPage=VOC_PAGE;}svV();closeVM();rVocab();}window.saveV=saveV;
 function delV(id){if(!confirm('삭제?'))return;vocD=vocD.filter(function(v){return v.id!==id;});svV();rVocab();}window.delV=delV;
-function setVF(c){vFil=c;lS('eh_vfil',c);rVocab();}window.setVF=setVF;
+function setVF(c){vFil=c;lS('eh_vfil',c);vocPage=VOC_PAGE;rVocab();}window.setVF=setVF;
 function rVocab(){
   // 카드 모드 중이면 UI 건드리지 않음 (카드가 사라지는 버그 방지)
   if(isFC)return;
@@ -1028,10 +1028,15 @@ function rVocab(){
   var showCard=vocD.length>=2;
   fE.innerHTML='<button class="vfb'+(vFil==='all'?' on':'')+'" onclick="setVF(\'all\')">전체('+vocD.length+')</button>'+VCATS.map(function(c){return cnts[c]>0?'<button class="vfb'+(vFil===c?' on':'')+'" onclick="setVF(\''+c+'\')">'+c+'('+cnts[c]+')</button>':'';}).join('')+(showCard?'<button class="vfb" onclick="startFC()" style="background:var(--warm);color:#fff;border-color:var(--warm)">🃏 카드</button>':'');
   if(!fl.length){lE.innerHTML='<div class="vempty">단어를 추가해보세요! 📚</div>';return;}
-  var grp={};fl.forEach(function(v){if(!grp[v.cat])grp[v.cat]=[];grp[v.cat].push(v);});
+  // 페이지네이션: vocPage 개수만 표시
+  var vis=fl.slice(0,vocPage);
+  var grp={};vis.forEach(function(v){if(!grp[v.cat])grp[v.cat]=[];grp[v.cat].push(v);});
   var h='';(vFil==='all'?VCATS:[vFil]).forEach(function(cat){var its=grp[cat];if(!its)return;h+='<div class="vgh"><span>'+cat+'</span><span class="cnt">'+its.length+'</span></div>';its.forEach(function(v){var d=new Date(v.date+'T12:00:00');h+='<div class="vcd"><div class="va"><button onclick="openVM(\''+v.id+'\')" title="수정">✏️</button><button onclick="delV(\''+v.id+'\')" title="삭제">🗑️</button></div><div class="ven">'+esc(v.en)+'</div><div class="vko">'+esc(v.ko)+'</div><div class="vdt">'+(d.getMonth()+1)+'/'+d.getDate()+(v.src?' · '+esc(v.src):'')+(v.auto?' <span class="ai-badge">AI</span>':'')+'</div></div>';});});
+  var remain=fl.length-vocPage;
+  if(remain>0)h+='<button class="vload" onclick="loadMoreVoc()">더 보기 ('+remain+'개 더)</button>';
   lE.innerHTML=h;
 }
+function loadMoreVoc(){vocPage+=VOC_PAGE;rVocab();}window.loadMoreVoc=loadMoreVoc;
 function startFC(){var fl=vFil==='all'?vocD.slice():vocD.filter(function(v){return v.cat===vFil;});if(fl.length<2){showToast('카드 모드는 단어가 2개 이상 필요해요 📚');return;}for(var i=fl.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=fl[i];fl[i]=fl[j];fl[j]=t;}fcL=fl;fcI=0;fcSh=false;isFC=true;document.getElementById('vlist').style.display='none';var aE=document.querySelector('.vadd');if(aE)aE.style.display='none';document.getElementById('vfl').style.display='none';rFC();}window.startFC=startFC;
 // 카드 플립·넘기기 — onclick에서 IIFE 변수 접근 불가 문제 해결용 window 함수
 function fcFlip(){fcSh=true;rFC();}window.fcFlip=fcFlip;
