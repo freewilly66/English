@@ -39,14 +39,14 @@ body{height:100%;min-height:-webkit-fill-available;overflow:hidden;background:va
 .hdr .sub{font-size:11px;color:var(--tx3);margin-top:1px}
 .nb{padding:5px 12px;border-radius:20px;border:1.5px solid var(--bd);background:transparent;color:var(--tx2);font-size:11px;font-weight:600;cursor:pointer;-webkit-appearance:none}
 .nb.on{background:var(--pri);color:#fff;border-color:var(--pri)}
-.scr{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 72px)}
+.scr{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 72px);will-change:scroll-position}
 /* Hero */
 .hero-pw{position:relative;overflow:hidden;background:#111}
 .hero-pw img{width:100%;max-height:220px;object-fit:cover;display:block}
 .hero{background:linear-gradient(135deg,#16a085,#1abc9c,#2ecc71);padding:12px 16px 10px;color:#fff}
 .hero-e{font-size:22px;margin-bottom:2px}
 .hero-t{font-size:12px;font-weight:600;opacity:.9}
-.qbox{margin-top:8px;background:rgba(255,255,255,.13);border-radius:var(--rad-s);padding:8px 10px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.qbox{margin-top:8px;background:rgba(255,255,255,.18);border-radius:var(--rad-s);padding:8px 10px}
 .qen{font-size:12px;font-weight:700;line-height:1.4;font-style:italic}
 .qko{font-size:9px;margin-top:3px;opacity:.75}
 .qby{font-size:8px;margin-top:2px;opacity:.5;text-align:right}
@@ -308,7 +308,22 @@ button,a{cursor:pointer}a{text-decoration:none}
 var iOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
 var standalone=navigator.standalone||matchMedia('(display-mode:standalone)').matches;
 function lG(k,f){try{var v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}}
-function lS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function lS(k,v){
+  try{localStorage.setItem(k,JSON.stringify(v));}
+  catch(e){
+    // 용량 초과 시 AI 분석 캐시(가장 큰 데이터)를 절반 삭제 후 재시도
+    if(e.name==='QuotaExceededError'||e.code===22||e.code===1014){
+      try{
+        var az=azd||{};var ak=Object.keys(az);
+        if(ak.length>0){
+          ak.slice(0,Math.ceil(ak.length/2)).forEach(function(x){delete az[x];});
+          azd=az;localStorage.setItem('eh_analyzed',JSON.stringify(az));
+        }
+        localStorage.setItem(k,JSON.stringify(v));
+      }catch(e2){console.warn('lS 재시도 실패:',k,e2);}
+    }
+  }
+}
 // 로컬 날짜 (YYYY-MM-DD) — toISOString()은 UTC라 한국(UTC+9)에서 자정~9시 오차 발생
 function localDate(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 var TD=localDate();
@@ -695,7 +710,7 @@ function fetchCh(ch,autoRetry){
       delete feedLoadState[ch.id];
       sCache(ch.id,items);
       // 자동 재시도(retryRound>0)로 성공한 경우만 즉시 렌더 갱신
-      if(retryRound>0){renderFR(lastFR.map(function(r){return r.ch.id===ch.id?{ch:ch,items:items}:r;}));}
+      if(retryRound>0){var _items=lastFR.map(function(r){return r.ch.id===ch.id?{ch:ch,items:items}:r;});requestAnimationFrame(function(){renderFR(_items);});}
       return{ch:ch,items:items};
     }).catch(function(e){
       console.warn('[Feed] '+ch.name+' #'+(idx+1)+' 실패: '+e.message);
@@ -718,9 +733,9 @@ function onEpTap(url,title,thumb,chCls,chName,videoDate){
   lT.add(url);svL();renderFR(lastFR);
   if(!S.history[TD]&&allEps.size>0&&Array.from(allEps).every(function(u){return lT.has(u);})){
     S.history[TD]=true;sv();
+    render(); // sg3(연속·누적) 즉시 갱신
     var aw=document.getElementById('aw');
     if(aw)aw.innerHTML='<div class="bdone anim"><div style="font-size:32px;margin-bottom:6px">🎉</div><div style="font-size:15px;font-weight:900;color:var(--pri)">오늘 완료!</div><div class="how">모든 콘텐츠 확인 완료</div></div>';
-    setTimeout(render,2000);
   }
   analyzeEp(url);
 }
@@ -859,7 +874,7 @@ function loadFeeds(force){
     // 캐시 전혀 없음 — 채널별 로딩 카드 표시
     w.innerHTML=CHS.map(makeFeedLoadingCard).join('');
   }
-  Promise.all(CHS.map(function(ch){return fetchCh(ch);})).then(function(res){renderFR(res);}).catch(function(e){console.error(e);});
+  Promise.all(CHS.map(function(ch){return fetchCh(ch);})).then(function(res){requestAnimationFrame(function(){renderFR(res);});}).catch(function(e){console.error(e);});
 }
 window.loadFeeds=loadFeeds;
 
