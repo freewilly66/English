@@ -313,14 +313,16 @@ function lG(k,f){try{var v=localStorage.getItem(k);return v?JSON.parse(v):f;}cat
 function lS(k,v){
   try{localStorage.setItem(k,JSON.stringify(v));}
   catch(e){
-    // 용량 초과 시 AI 분석 캐시(가장 큰 데이터)를 절반 삭제 후 재시도
     if(e.name==='QuotaExceededError'||e.code===22||e.code===1014){
       try{
-        var az=azd||{};var ak=Object.keys(az);
-        if(ak.length>0){
-          ak.slice(0,Math.ceil(ak.length/2)).forEach(function(x){delete az[x];});
-          azd=az;localStorage.setItem('eh_analyzed',JSON.stringify(az));
+        // 1단계: AI 분석 캐시 전부 삭제
+        azd={};try{localStorage.setItem('eh_analyzed','{}');}catch(e2){}
+        // 2단계: 시청 기록 50개로 trim
+        if(typeof watchHist!=='undefined'&&watchHist.length>50){
+          watchHist=watchHist.slice(0,50);
+          try{localStorage.setItem('eh_history',JSON.stringify(watchHist));}catch(e2){}
         }
+        // 3단계: 재시도
         localStorage.setItem(k,JSON.stringify(v));
       }catch(e2){console.warn('lS 재시도 실패:',k,e2);}
     }
@@ -361,6 +363,8 @@ function getQ(){var dy=Math.floor((new Date()-new Date(new Date().getFullYear(),
 var DF={history:{},notif:false,tab:'bbc',wGoal:7,rH:9,rM:0,dMin:30};
 var S=lG('eh_state',DF);
 ['wGoal','rH','rM','dMin'].forEach(function(k){if(S[k]===undefined)S[k]=DF[k];});
+// eh_hist 백업과 병합 — eh_state 저장 실패 시에도 history 복원
+(function(){try{var hb=lG('eh_hist',{});S.history=Object.assign({},hb,S.history);}catch(e){}})();
 var lR=lG('eh_listened',{});
 // lR 컷오프: localDate 기준 (TD와 동일 기준으로 일관성 유지)
 var _c30=new Date(Date.now()-30*864e5);
@@ -522,7 +526,13 @@ function rpSave(chCls){
   renderFR(lastFR);
 }
 window.rpSave=rpSave;
-function sv(){lS('eh_state',S);}
+function sv(){
+  lS('eh_state',S);
+  // S.history 를 별도 키에 백업 — eh_state 저장 실패해도 streak 보존
+  try{localStorage.setItem('eh_hist',JSON.stringify(S.history));}catch(e){
+    try{azd={};localStorage.setItem('eh_analyzed','{}');localStorage.setItem('eh_hist',JSON.stringify(S.history));}catch(e2){}
+  }
+}
 function svL(){lR[TD]=Array.from(lT);lS('eh_listened',lR);}
 function svV(){lS('eh_vocab',vocD);}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -573,7 +583,7 @@ function setDMin(v){var n=parseInt(v)||30;S.dMin=Math.max(5,Math.min(120,n));sv(
 function setRTime(v){if(!v)return;var p=v.split(':');S.rH=parseInt(p[0])||9;S.rM=parseInt(p[1])||0;sv();}window.setRTime=setRTime;
 function goPage(p){document.querySelectorAll('.pg').forEach(function(e){e.classList.remove('on');});document.getElementById('pg-'+p).classList.add('on');document.querySelectorAll('.nbtn').forEach(function(e){e.classList.remove('on');});document.getElementById('n-'+p).classList.add('on');document.getElementById('main-scr').scrollTop=0;if(p==='set'){rSet();rCal();}if(p==='content')rContent();}
 window.goPage=goPage;
-function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};azing={};watchLog={};watchHist=[];todayPick={date:TD};vocD=[];vFil='all';isFC=false;lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_history',[]);lS('eh_today_pick',todayPick);lS('eh_vocab',[]);lS('eh_vfil','all');sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
+function rstAll(){if(confirm('모든 기록 삭제?')){S.history={};lT=new Set();lR={};allEps=new Set();azd={};azing={};watchLog={};watchHist=[];todayPick={date:TD};vocD=[];vFil='all';isFC=false;lS('eh_analyzed',{});lS('eh_watch',{});lS('eh_history',[]);lS('eh_today_pick',todayPick);lS('eh_vocab',[]);lS('eh_vfil','all');try{localStorage.removeItem('eh_hist');}catch(e){}sv();svL();render();rCal();alert('삭제 완료');}}window.rstAll=rstAll;
 function rstStart(){var fd=fDay();if(!fd){alert('기록 없음');return;}if(!confirm('시작일을 오늘로?')){return;}Object.keys(S.history).forEach(function(k){if(k<TD)delete S.history[k];});sv();render();rCal();rSet();}window.rstStart=rstStart;
 
 // ── Export/Import ──
